@@ -181,3 +181,28 @@ Claude: "I'll create a VibeKanban task and start a workspace session for this.
 - Single-line fixes or typos
 - Documentation updates
 - Quick configuration changes
+
+### Testing & Validation
+For every task, **always run local preview and validate** before marking complete:
+
+#### Web (`web/`)
+```bash
+cd web/
+npm run dev              # Start dev server on http://localhost:3000
+npm run lint            # Check linting
+npm run type-check      # Validate TypeScript
+```
+
+#### Before Task Completion
+1. **Run dev server** and verify changes visually
+2. **Test all themes** (Signal Atlas, Playground Control, Nightshift Utilities)
+3. **Check console** for errors
+4. **Run linting** and fix any issues
+5. **Responsive test** on mobile viewport
+
+#### Automated Validation
+When available:
+```bash
+npm test                # Run test suite
+npm run test:coverage   # Check coverage
+```
