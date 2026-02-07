@@ -157,3 +157,27 @@ The physical reset button (`/etc/rc.button/reset`) MUST:
 - **State Polling**: Router pulls config (no push from cloud)
 - **Plugin Isolation**: Each plugin in `/etc/fam/plugins/` is independently executable
 - **UCI Commit Pattern**: Always `uci commit && <service reload>` after changes
+
+## Task Management with VibeKanban
+
+When starting implementation work, **always use VibeKanban** for task tracking and workspace sessions.
+
+### Workflow
+1. **Propose VibeKanban** for any new substantive task (not single-line fixes)
+2. **Create task** in the **openfam** project
+3. **Start workspace session** with:
+   - Executor: `CLAUDE_CODE`
+   - Variant: `ZAI`
+4. Work directly in the spawned workspace session
+
+### Example Flow
+```
+User: "Implement the DNS plugin"
+Claude: "I'll create a VibeKanban task and start a workspace session for this.
+        [Creates task → Starts session with CLAUDE_CODE/ZAI]"
+```
+
+### When to Skip VibeKanban
+- Single-line fixes or typos
+- Documentation updates
+- Quick configuration changes
