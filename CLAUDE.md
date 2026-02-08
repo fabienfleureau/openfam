@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Open-F.A.M.** ("The smart heart of your family's network") is a parental control system built as three interconnected modules:
 
 1. **Cloud Dashboard** (`web/`) - Next.js + Tailwind + Supabase frontend
-2. **Router Agent** (`fam-agent`) - Ash script for OpenWrt routers
-3. **Installer CLI** (`fam-cli`) - Python setup tool for parents' computers
+2. **Router Agent** (`fam-agent`) - Ash script for OpenWrt routers (to be implemented)
+3. **Installer CLI** (`openfam-cli/`) - TypeScript/Node.js management tool
 
 The system implements zero-trust network access, profile-based filtering, time-based schedules, and a "bonus time" request system.
 
@@ -51,6 +51,53 @@ The router agent (`/etc/fam/agent.sh`) orchestrates plugins in `/etc/fam/plugins
 }
 ```
 
+## Installer CLI (`openfam-cli/`)
+
+### Tech Stack
+- **Language**: TypeScript (ES2022 modules)
+- **Runtime**: Node.js >= 18
+- **SSH**: node-ssh library with strict host key verification
+- **Authentication**: SSH keys only (no password auth for security)
+
+### Commands
+```bash
+cd openfam-cli/
+npm install && npm run build
+
+# Check router connectivity
+node dist/cli.js auth check
+
+# List connected devices (with status)
+node dist/cli.js devices list
+node dist/cli.js devices list --json  # JSON output
+
+# Debug mode (verbose output)
+node dist/cli.js --debug auth check
+```
+
+### Configuration
+Create `.env` in the `openfam-cli/` directory:
+
+```env
+OPENWRT_ROUTER_IP=192.168.10.1
+OPENWRT_SSH_KEY_PATH=~/.ssh/id_ed25519
+```
+
+### Security Notes
+- SSH key authentication **required** (no passwords)
+- Strict host key verification enabled
+- Debug mode warns about potential sensitive info exposure
+- Always validate SSH key permissions (0600 recommended)
+
+### CLI Development Commands
+```bash
+cd openfam-cli/
+npm run build           # Compile TypeScript
+npm run dev             # Watch mode
+npm run type-check      # TypeScript validation
+npm run lint            # ESLint
+```
+
 ## Dashboard (`web/`)
 
 ### Tech Stack
@@ -86,7 +133,7 @@ npm run lint            # ESLint
 npm run type-check      # TypeScript validation
 ```
 
-## Router Agent (OpenWrt)
+## Router Agent (OpenWrt) - To Be Implemented
 
 ### Language & Tools
 - **Shell**: POSIX-compliant Ash (busybox)
@@ -117,22 +164,6 @@ tail -f /tmp/fam.log
 echo '{"profiles":[]}' | jq '.'
 ```
 
-## Installer CLI (`fam-cli`)
-
-### Tech Stack
-- **Language**: Python
-- **SSH Library**: `paramiko`
-- **Functions**: Backup config, flash OpenWrt images, bootstrap router
-
-### CLI Development Commands
-```bash
-cd fam-cli/
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python -m fam_cli --help
-```
-
 ## Security Fail-Safe
 
 The physical reset button (`/etc/rc.button/reset`) MUST:
@@ -145,7 +176,7 @@ The physical reset button (`/etc/rc.button/reset`) MUST:
 
 ## Implementation Phases
 
-1. **Phase 1**: CLI + Bootstrap (Python installer, OpenWrt bootstrap script)
+1. **Phase 1**: CLI + Bootstrap (TypeScript installer, OpenWrt bootstrap script)
 2. **Phase 2**: Router Agent + Device Detection (MAC detection, JSON polling)
 3. **Phase 3**: Captive Portal + Webhooks (OpenNDS, approval requests)
 4. **Phase 4**: Granular Filtering (OAF integration, NextDNS switching)
@@ -157,6 +188,7 @@ The physical reset button (`/etc/rc.button/reset`) MUST:
 - **State Polling**: Router pulls config (no push from cloud)
 - **Plugin Isolation**: Each plugin in `/etc/fam/plugins/` is independently executable
 - **UCI Commit Pattern**: Always `uci commit && <service reload>` after changes
+- **SSH Key Auth Only**: CLI uses SSH keys, never passwords
 
 ## Task Management with VibeKanban
 
@@ -191,6 +223,14 @@ cd web/
 npm run dev              # Start dev server on http://localhost:3000
 npm run lint            # Check linting
 npm run type-check      # Validate TypeScript
+```
+
+#### CLI (`openfam-cli/`)
+```bash
+cd openfam-cli/
+npm run build           # Build TypeScript
+npm run type-check      # Validate TypeScript
+node dist/cli.js auth check  # Test connectivity
 ```
 
 #### Before Task Completion

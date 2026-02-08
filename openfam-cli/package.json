@@ -1,0 +1,37 @@
+{
+  "name": "openfam-cli",
+  "version": "0.1.0",
+  "description": "Open-F.A.M. CLI - Installer and management tool for OpenWrt parental control",
+  "main": "dist/index.js",
+  "bin": {
+    "openfam": "./dist/cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "lint": "eslint src",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": ["parental-control", "openwrt", "cli", "router"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.0.0",
+    "node-ssh": "^13.1.0",
+    "dotenv": "^16.4.1",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
