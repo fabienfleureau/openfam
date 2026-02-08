@@ -29,6 +29,10 @@ export function createDevicesCommand(): Command {
         await client.connect();
         spinner.text = 'Fetching connected devices...';
 
+        // Get current timestamp for filtering active leases
+        const timeResult = await client.exec('date +%s');
+        const currentTime = parseInt(timeResult.stdout.trim(), 10);
+
         // Get ARP table for connected devices
         const arpResult = await client.exec('cat /proc/net/arp');
 
@@ -41,11 +45,11 @@ export function createDevicesCommand(): Command {
         // Parse ARP table
         const devices = parseArpTable(arpResult.stdout);
 
-        // Get DHCP leases for hostnames
+        // Get DHCP leases for hostnames (only active leases)
         const leasesResult = await client.exec('cat /tmp/dhcp.leases');
-        const hostnameMap = parseDhcpLeases(leasesResult.stdout);
+        const hostnameMap = parseDhcpLeases(leasesResult.stdout, currentTime);
 
-        // Merge hostname info
+        // Merge hostname info (only for devices with active leases)
         const devicesWithNames = devices.map((device) => ({
           ...device,
           hostname: hostnameMap.get(device.mac) || hostnameMap.get(device.ip),
@@ -113,7 +117,7 @@ function parseArpTable(output: string): Device[] {
   return devices;
 }
 
-function parseDhcpLeases(output: string): Map<string, string> {
+function parseDhcpLeases(output: string, currentTime: number): Map<string, string> {
   const leases = new Map<string, string>();
   const lines = output.split('\n');
 
@@ -123,11 +127,13 @@ function parseDhcpLeases(output: string): Map<string, string> {
     // DHCP leases format: timestamp mac ip hostname clientid
     const parts = line.split(/\s+/);
     if (parts.length >= 4) {
+      const expiryTime = parseInt(parts[0], 10);
       const mac = parts[1].toUpperCase();
       const ip = parts[2];
       const hostname = parts[3] !== '*' ? parts[3] : undefined;
 
-      if (hostname) {
+      // Only include active leases (expiry time is in the future)
+      if (expiryTime > currentTime && hostname) {
         leases.set(mac, hostname);
         leases.set(ip, hostname);
       }
