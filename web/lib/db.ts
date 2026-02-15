@@ -13,18 +13,18 @@ export function getPool(): Pool {
   return pool;
 }
 
-export async function query<T>(text: string, params?: any[]): Promise<T[]> {
+export async function query(text: string, params?: any[]): Promise<any[]> {
   const pool = getPool();
   const client = await pool.connect();
   try {
-    const result = await client.query<T>(text, params);
+    const result = await client.query(text, params);
     return result.rows;
   } finally {
     client.release();
   }
 }
 
-export async function queryOne<T>(text: string, params?: any[]): Promise<T | null> {
-  const rows = await query<T>(text, params);
+export async function queryOne(text: string, params?: any[]): Promise<any> {
+  const rows = await query(text, params);
   return rows[0] || null;
 }
