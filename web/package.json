@@ -5,9 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:migrate": "npm run migrate && next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "migrate": "node -e \"import('./lib/migrations.js').then(m => m.runMigrations())\""
   },
   "dependencies": {
     "clsx": "^2.1.1",
