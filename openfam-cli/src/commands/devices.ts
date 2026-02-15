@@ -29,6 +29,16 @@ export function createDevicesCommand(): Command {
         await client.connect();
         spinner.text = 'Fetching connected devices...';
 
+        // Detect LAN interface from network config
+        const networkResult = await client.exec('uci get network.lan.ifname');
+        let lanInterface = 'br-lan'; // OpenWrt default fallback
+
+        if (networkResult.exitCode === 0 && networkResult.stdout.trim()) {
+          // May return a bridge (br-lan) or physical interface list (eth0 eth1 eth2)
+          const ifname = networkResult.stdout.trim();
+          lanInterface = ifname.split(' ')[0]; // Take first interface if multiple
+        }
+
         // Get current timestamp for filtering active leases
         const timeResult = await client.exec('date +%s');
         const currentTime = parseInt(timeResult.stdout.trim(), 10);
@@ -45,12 +55,15 @@ export function createDevicesCommand(): Command {
         // Parse ARP table
         const devices = parseArpTable(arpResult.stdout);
 
+        // Filter to only LAN devices (exclude WAN)
+        const lanDevices = devices.filter(d => d.interface === lanInterface);
+
         // Get DHCP leases for hostnames (only active leases)
         const leasesResult = await client.exec('cat /tmp/dhcp.leases');
         const hostnameMap = parseDhcpLeases(leasesResult.stdout, currentTime);
 
         // Merge hostname info (only for devices with active leases)
-        const devicesWithNames = devices.map((device) => ({
+        const devicesWithNames = lanDevices.map((device) => ({
           ...device,
           hostname: hostnameMap.get(device.mac) || hostnameMap.get(device.ip),
         }));
@@ -151,29 +164,6 @@ function displayDevices(devices: Device[], routerIp: string): void {
   // Display connected devices
   console.log(chalk.dim('─'.repeat(70)));
   console.log(chalk.green.bold(`Connected (${connected.length})`));
-
-  // Filter to LAN devices only (active local network, not WAN)
-  const showWan = args.includes('--wan');
-
-  const devices = parseDhcpLeases(dhcpResult.stdout);
-
-  // Filter: if --wan flag, show all; otherwise only LAN (active/offline)
-  const filtered = showWan ? devices : devices.filter(d => {
-    // WAN devices have no active lease OR are offline
-    !d.leaseEndTime || d.status === 'offline'
-  });
-
-  // Display connected vs offline
-  const connected = filtered.filter(d => d.status === 'connected' || d.status === 'online');
-  const offline = filtered.filter(d => d.status !== 'connected' && d.status !== 'online');
-
-  // Display sections
-  if (connected.length > 0) {
-    displayDevices(chalk.green('Connected'), connected);
-  }
-  if (offline.length > 0) {
-    displayDevices(chalk.yellow('Offline'), offline);
-  }
   console.log(chalk.dim('─'.repeat(70)));
 
   if (connected.length === 0) {
