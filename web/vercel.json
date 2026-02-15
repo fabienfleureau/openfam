@@ -1,8 +1,5 @@
 {
   "buildCommand": "npm run build:migrate",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "env": {
-    "DATABASE_URL": "@database-url"
-  }
+  "framework": "nextjs"
 }
