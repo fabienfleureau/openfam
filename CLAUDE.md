@@ -1,5 +1,30 @@
 # CLAUDE.md
 
+This repository is public hosted on github. Every commit must be 100% secure.
+
+## Security: No Secrets in Commits
+
+**Strict Rule:** Never commit the following to this repository:
+- Passwords or API keys
+- Private tokens or credentials
+- Environment variable values (`.env` file contents)
+- Database connection strings
+- SSH private keys
+- Any sensitive configuration data
+
+**Required Actions:**
+- Review all diffs with `git diff` before committing
+- Ensure no secrets in `git status --porcelain` untracked files
+- Use `.gitignore` to prevent accidental commits of sensitive files
+- If secrets are accidentally committed, immediately remove them with `git revert` or `git reset`
+
+**Enforcement:**
+This rule applies to all users, all commits, and all branches. Security is everyone's responsibility.
+
+---
+
+## Project Overview
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
