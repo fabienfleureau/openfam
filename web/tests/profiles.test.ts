@@ -1,5 +1,103 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { POST, GET } from 'node:https'
+import { POST } from 'node:https'
+
+// Types for request functions
+interface RequestInfo {
+  method: string;
+  path: string;
+  headers?: Record<string, string>;
+  body?: BodyInit | Record<string, string | number[]>;
+}
+
+// Mock fetch globally for testing
+async function request(
+  method: string,
+  path: string,
+  options?: RequestInfo
+): Promise<{
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  json: () => Promise<any>;
+}> {
+  const baseUrl = 'http://localhost:3000'
+  const url = `${baseUrl}${path}`
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options?.headers
+  }
+
+  const init: RequestInit = {
+    method,
+    headers,
+    body: options?.body ? JSON.stringify(options.body) : undefined
+  }
+
+  const response = await fetch(url, init)
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    headers: Object.fromEntries(response.headers.entries()),
+    json: async () => response.json()
+  }
+}
+
+// Export request functions to global scope for tests
+export const GET = request.bind(null, 'GET')
+export const POST = request.bind(null, 'POST')
+
+
+// Types for request functions
+type RequestOptions = RequestInfo & {
+  headers?: Record<string, string>;
+  body?: BodyInit | Record<string, string | number[]>;
+}
+
+// Mock fetch globally for testing
+async function request(
+  method: string,
+  path: string,
+  options?: RequestOptions
+): Promise<{
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  json: () => Promise<any>;
+}> {
+  const baseUrl = 'http://localhost:3000'
+  const url = `${baseUrl}${path}`
+
+  const headers: {
+    'Content-Type': 'application/json',
+    ...options?.headers
+  }
+
+  const init: RequestInit = {
+    method,
+    headers,
+    body: options?.body ? JSON.stringify(options.body) : undefined
+  }
+
+  const response = await fetch(url, init)
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    headers: Object.fromEntries(response.headers.entries()),
+    json: async () => response.json()
+  }
+}
+
+// Export request functions to global scope for tests
+export const GET = request.bind(null, 'GET')
+export const POST = request.bind(null, 'POST')
+
 
 // Mock Supabase for testing
 const mockDb = {
