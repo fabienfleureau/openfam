@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "migrate": "tsx lib/migrations.ts""
+    "migrate": "tsx lib/migrations.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
