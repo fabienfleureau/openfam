@@ -151,6 +151,29 @@ function displayDevices(devices: Device[], routerIp: string): void {
   // Display connected devices
   console.log(chalk.dim('─'.repeat(70)));
   console.log(chalk.green.bold(`Connected (${connected.length})`));
+
+  // Filter to LAN devices only (active local network, not WAN)
+  const showWan = args.includes('--wan');
+
+  const devices = parseDhcpLeases(dhcpResult.stdout);
+
+  // Filter: if --wan flag, show all; otherwise only LAN (active/offline)
+  const filtered = showWan ? devices : devices.filter(d => {
+    // WAN devices have no active lease OR are offline
+    !d.leaseEndTime || d.status === 'offline'
+  });
+
+  // Display connected vs offline
+  const connected = filtered.filter(d => d.status === 'connected' || d.status === 'online');
+  const offline = filtered.filter(d => d.status !== 'connected' && d.status !== 'online');
+
+  // Display sections
+  if (connected.length > 0) {
+    displayDevices(chalk.green('Connected'), connected);
+  }
+  if (offline.length > 0) {
+    displayDevices(chalk.yellow('Offline'), offline);
+  }
   console.log(chalk.dim('─'.repeat(70)));
 
   if (connected.length === 0) {
