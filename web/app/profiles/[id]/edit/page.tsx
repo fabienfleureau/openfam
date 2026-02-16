@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ThemeProvider } from "@/app/providers";
 import { ThemeSelector } from "@/components/theme-selector";
 import { Link as LinkIcon, Plus, X } from "lucide-react";
+import { GeometricBackground } from "@/components/GeometricBackground";
 import type { ProfileResponse } from "@/application/dtos/profile-response.dto";
 
 export default function EditProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -134,7 +135,8 @@ export default function EditProfilePage({ params }: { params: Promise<{ id: stri
   if (loading) {
     return (
       <ThemeProvider>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen relative">
+          <GeometricBackground />
           <header className="theme-border border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
@@ -169,7 +171,8 @@ export default function EditProfilePage({ params }: { params: Promise<{ id: stri
   if (error && !profile) {
     return (
       <ThemeProvider>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen relative">
+          <GeometricBackground />
           <header className="theme-border border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
@@ -209,7 +212,8 @@ export default function EditProfilePage({ params }: { params: Promise<{ id: stri
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen relative">
+        <GeometricBackground />
         {/* Header */}
         <header className="theme-border border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

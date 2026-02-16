@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ThemeProvider } from "@/app/providers";
 import { ThemeSelector } from "@/components/theme-selector";
 import { Link as LinkIcon, Plus, X } from "lucide-react";
+import { GeometricBackground } from "@/components/GeometricBackground";
 
 export default function NewProfilePage() {
   const router = useRouter();
@@ -90,7 +91,8 @@ export default function NewProfilePage() {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen relative">
+        <GeometricBackground />
         {/* Header */}
         <header className="theme-border border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
