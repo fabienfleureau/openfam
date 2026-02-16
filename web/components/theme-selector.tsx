@@ -6,7 +6,8 @@ import { useState } from "react";
 
 const themeColors: Record<string, string> = {
   "signal-atlas": "#268bd2",
-  "solarized-zen": "#2aa198",
+  "playground-control": "#ff6b6b",
+  "nightshift": "#ff9500",
 };
 
 export function ThemeSelector() {

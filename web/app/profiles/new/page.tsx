@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ThemeProvider } from "@/app/providers";
-import { ThemeSelector } from "@/components/theme-selector";
 import { Link as LinkIcon, Plus, X } from "lucide-react";
 import { GeometricBackground } from "@/components/GeometricBackground";
+import { GlassCard } from "@/components/GlassCard";
 
 export default function NewProfilePage() {
   const router = useRouter();
@@ -90,146 +89,135 @@ export default function NewProfilePage() {
   };
 
   return (
-    <ThemeProvider>
-      <div className="min-h-screen relative">
-        <GeometricBackground />
+    <div className="min-h-screen relative">
+      <GeometricBackground />
+
+      <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <header className="theme-border border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/profiles"
-                  className="p-2 rounded-md bg-accent/10 hover:bg-accent/20 transition-colors"
-                >
-                  <LinkIcon className="w-5 h-5 text-accent" />
-                </Link>
-                <div>
-                  <h1 className="font-display text-xl">Open-F.A.M.</h1>
-                  <p className="text-xs text-muted-foreground hidden sm:block">
-                    The smart heart of your family's network
-                  </p>
-                </div>
-              </div>
-              <ThemeSelector />
+        <header className="mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <Link
+              href="/profiles"
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <LinkIcon className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Open-F.A.M.</h1>
+              <p className="text-sm text-white/70">The smart heart of your family's network</p>
             </div>
+          </div>
+
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-white">Create Profile</h2>
+            <p className="text-white/70 mt-1">Add a new family member profile</p>
           </div>
         </header>
 
-        {/* Main Content */}
-        <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="mb-8 opacity-0 animate-fade-in">
-            <h2 className="font-display text-3xl mb-2">Create Profile</h2>
-            <p className="text-muted-foreground">
-              Add a new family member profile
-            </p>
-          </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Error Message */}
+          {error && (
+            <GlassCard>
+              <p className="text-red-300">{error}</p>
+            </GlassCard>
+          )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Error Message */}
-            {error && (
-              <div className="theme-card p-4 text-error">
-                {error}
-              </div>
-            )}
+          {/* Name */}
+          <GlassCard>
+            <label htmlFor="name" className="block text-sm font-medium text-white mb-2">
+              Name <span className="text-red-300">*</span>
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Child, Parent, Guest"
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+              maxLength={255}
+              required
+            />
+          </GlassCard>
 
-            {/* Name */}
-            <div className="theme-card p-6 opacity-0 animate-fade-in-up animation-delay-100">
-              <label htmlFor="name" className="block text-sm font-medium mb-2">
-                Name <span className="text-error">*</span>
+          {/* Description */}
+          <GlassCard>
+            <label htmlFor="description" className="block text-sm font-medium text-white mb-2">
+              Description
+            </label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional description for this profile"
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 resize-none"
+              rows={3}
+              maxLength={5000}
+            />
+          </GlassCard>
+
+          {/* MAC Addresses */}
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <label className="block text-sm font-medium text-white">
+                MAC Addresses
               </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Child, Parent, Guest"
-                className="w-full px-3 py-2 bg-background theme-border border rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                maxLength={255}
-                required
-              />
-            </div>
-
-            {/* Description */}
-            <div className="theme-card p-6 opacity-0 animate-fade-in-up animation-delay-200">
-              <label htmlFor="description" className="block text-sm font-medium mb-2">
-                Description
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional description for this profile"
-                className="w-full px-3 py-2 bg-background theme-border border rounded-md focus:outline-none focus:ring-2 focus:ring-accent resize-none"
-                rows={3}
-                maxLength={5000}
-              />
-            </div>
-
-            {/* MAC Addresses */}
-            <div className="theme-card p-6 opacity-0 animate-fade-in-up animation-delay-300">
-              <div className="flex items-center justify-between mb-4">
-                <label className="block text-sm font-medium">
-                  MAC Addresses
-                </label>
-                <button
-                  type="button"
-                  onClick={addMacField}
-                  className="flex items-center gap-1 text-sm text-accent hover:text-accent/80 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Device
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">
-                Assign devices by MAC address (format: AA:BB:CC:DD:EE:FF)
-              </p>
-
-              <div className="space-y-3">
-                {macAddresses.map((mac, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={mac}
-                      onChange={(e) => handleMacChange(index, e.target.value)}
-                      placeholder="AA:BB:CC:DD:EE:FF"
-                      className="flex-1 px-3 py-2 bg-background theme-border border rounded-md focus:outline-none focus:ring-2 focus:ring-accent font-mono text-sm"
-                      style={{ textTransform: "uppercase" }}
-                    />
-                    {macAddresses.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeMacField(index)}
-                        className="p-2 rounded-md bg-error/10 text-error hover:bg-error/20 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between opacity-0 animate-fade-in-up animation-delay-400">
-              <Link
-                href="/profiles"
-                className="px-4 py-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
-              >
-                Cancel
-              </Link>
               <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                type="button"
+                onClick={addMacField}
+                className="flex items-center gap-1 text-sm text-white/80 hover:text-white transition-colors"
               >
-                {loading ? "Creating..." : "Create Profile"}
+                <Plus className="w-4 h-4" />
+                Add Device
               </button>
             </div>
-          </form>
-        </main>
+            <p className="text-xs text-white/50 mb-4">
+              Assign devices by MAC address (format: AA:BB:CC:DD:EE:FF)
+            </p>
+
+            <div className="space-y-3">
+              {macAddresses.map((mac, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={mac}
+                    onChange={(e) => handleMacChange(index, e.target.value)}
+                    placeholder="AA:BB:CC:DD:EE:FF"
+                    className="flex-1 px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 font-mono text-sm"
+                    style={{ textTransform: "uppercase" }}
+                  />
+                  {macAddresses.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeMacField(index)}
+                      className="p-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+
+          {/* Actions */}
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/profiles"
+              className="px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-3 rounded-lg bg-white text-purple-900 font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+            >
+              {loading ? "Creating..." : "Create Profile"}
+            </button>
+          </div>
+        </form>
       </div>
-    </ThemeProvider>
+    </div>
   );
 }

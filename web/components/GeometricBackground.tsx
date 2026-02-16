@@ -20,63 +20,69 @@ export function GeometricBackground() {
 
       {/* Large lava blobs - warm colors */}
       <div className="absolute top-0 left-0 w-full h-full">
-        {/* Red blob - large */}
+        {/* Red blob - large - rises from bottom-left */}
         <div
-          className="absolute w-[600px] h-[600px] bg-red-600/30 rounded-full blur-3xl animate-blob"
+          className="absolute w-[600px] h-[600px] bg-red-600/30 rounded-full blur-3xl animate-lava-rise"
           style={{
-            top: '10%',
-            left: '10%',
+            bottom: '-50px',
+            left: '5%',
             animationDelay: '0s',
+            animationDuration: '16s',
           }}
         />
 
-        {/* Orange blob - large */}
+        {/* Orange blob - large - rises from bottom-right */}
         <div
-          className="absolute w-[700px] h-[700px] bg-orange-500/25 rounded-full blur-3xl animate-blob"
+          className="absolute w-[700px] h-[700px] bg-orange-500/25 rounded-full blur-3xl animate-lava-rise"
           style={{
-            top: '30%',
-            right: '10%',
-            animationDelay: '2s',
-          }}
-        />
-
-        {/* Pink blob - large */}
-        <div
-          className="absolute w-[500px] h-[500px] bg-pink-600/30 rounded-full blur-3xl animate-blob"
-          style={{
-            bottom: '10%',
-            left: '20%',
-            animationDelay: '4s',
-          }}
-        />
-
-        {/* Purple blob - large */}
-        <div
-          className="absolute w-[650px] h-[650px] bg-purple-600/25 rounded-full blur-3xl animate-blob"
-          style={{
-            bottom: '20%',
-            right: '15%',
-            animationDelay: '1s',
-          }}
-        />
-
-        {/* Yellow blob - medium */}
-        <div
-          className="absolute w-[400px] h-[400px] bg-yellow-500/20 rounded-full blur-3xl animate-blob"
-          style={{
-            top: '40%',
-            left: '40%',
-            animationDelay: '3s',
-          }}
-        />
-
-        {/* Magenta blob - medium */}
-        <div
-          className="absolute w-[450px] h-[450px] bg-fuchsia-600/25 rounded-full blur-3xl animate-blob"
-          style={{
-            top: '15%',
-            right: '30%',
+            bottom: '-50px',
+            right: '5%',
             animationDelay: '5s',
+            animationDuration: '18s',
+          }}
+        />
+
+        {/* Pink blob - large - falls from top */}
+        <div
+          className="absolute w-[500px] h-[500px] bg-pink-600/30 rounded-full blur-3xl animate-lava-fall"
+          style={{
+            top: '-50px',
+            left: '25%',
+            animationDelay: '3s',
+            animationDuration: '20s',
+          }}
+        />
+
+        {/* Purple blob - large - falls from top-right */}
+        <div
+          className="absolute w-[650px] h-[650px] bg-purple-600/25 rounded-full blur-3xl animate-lava-fall"
+          style={{
+            top: '-50px',
+            right: '20%',
+            animationDelay: '1s',
+            animationDuration: '17s',
+          }}
+        />
+
+        {/* Yellow blob - medium - rises from bottom-center */}
+        <div
+          className="absolute w-[400px] h-[400px] bg-yellow-500/20 rounded-full blur-3xl animate-lava-rise"
+          style={{
+            bottom: '-50px',
+            left: '45%',
+            animationDelay: '8s',
+            animationDuration: '14s',
+          }}
+        />
+
+        {/* Magenta blob - medium - falls from top-center */}
+        <div
+          className="absolute w-[450px] h-[450px] bg-fuchsia-600/25 rounded-full blur-3xl animate-lava-fall"
+          style={{
+            top: '-50px',
+            right: '35%',
+            animationDelay: '6s',
+            animationDuration: '19s',
           }}
         />
       </div>

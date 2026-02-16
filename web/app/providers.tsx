@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "signal-atlas" | "solarized-zen";
+type Theme = "signal-atlas" | "playground-control" | "nightshift";
 
 interface ThemeContextType {
   theme: Theme;
@@ -20,9 +20,14 @@ const themes: { id: Theme; name: string; description: string }[] = [
     description: "Serif headings, crisp borders",
   },
   {
-    id: "solarized-zen",
-    name: "Solarized Zen",
-    description: "Clean, minimalist",
+    id: "playground-control",
+    name: "Playground Control",
+    description: "Friendly, rounded sans-serif",
+  },
+  {
+    id: "nightshift",
+    name: "Nightshift Utilities",
+    description: "Industrial, condensed display",
   },
 ];
 
@@ -54,7 +59,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useTheme must be used within ThemeProvider");
   }
   return context;

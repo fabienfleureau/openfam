@@ -34,13 +34,13 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-6">
             {/* Stats */}
             <div className="text-center p-4 bg-white/5 rounded-lg">
-              <div className="text-4xl mb-2">👥</div>
+              <div className="text-4xl mb-2">📱</div>
               <div className="text-3xl font-bold text-white">12</div>
               <div className="text-white/70">Connected Devices</div>
             </div>
 
             <div className="text-center p-4 bg-white/5 rounded-lg">
-              <div className="text-4xl mb-2">📱</div>
+              <div className="text-4xl mb-2">👥</div>
               <div className="text-3xl font-bold text-white">3</div>
               <div className="text-white/70">Profiles</div>
             </div>
