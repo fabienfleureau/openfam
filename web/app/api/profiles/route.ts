@@ -4,6 +4,7 @@
  * POST /api/profiles - Create a new profile
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { listProfilesUseCase } from '@/application/use-cases/list-profiles.use-case';
 import { createProfileUseCase } from '@/application/use-cases/create-profile.use-case';
 import { toProfileResponseList, toProfileResponse } from '@/application/dtos/profile-response.dto';
@@ -14,6 +15,13 @@ import { ProfileAlreadyExistsError } from '@/application/errors/profile.errors';
  * List all profiles
  */
 export async function GET() {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const profiles = await listProfilesUseCase();
     return NextResponse.json(toProfileResponseList(profiles));
@@ -31,6 +39,13 @@ export async function GET() {
  * Create a new profile
  */
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
 

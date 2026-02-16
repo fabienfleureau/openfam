@@ -5,6 +5,7 @@
  * DELETE /api/profiles/[id] - Delete a profile
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { getProfileUseCase } from '@/application/use-cases/get-profile.use-case';
 import { updateProfileUseCase } from '@/application/use-cases/update-profile.use-case';
 import { deleteProfileUseCase } from '@/application/use-cases/delete-profile.use-case';
@@ -20,6 +21,13 @@ type RouteContext = {
  * Get a single profile by ID
  */
 export async function GET(request: NextRequest, context: RouteContext) {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await context.params;
     const profile = await getProfileUseCase(id);
@@ -46,6 +54,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
  * Update a profile
  */
 export async function PUT(request: NextRequest, context: RouteContext) {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await context.params;
     const body = await request.json();
@@ -88,6 +103,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
  * Delete a profile
  */
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await context.params;
     await deleteProfileUseCase(id);
