@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { GeometricBackground } from '@/components/GeometricBackground'
 import { GlassCard } from '@/components/GlassCard'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -93,5 +93,22 @@ export default function LoginPage() {
         </GlassCard>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <GeometricBackground />
+        <div className="w-full max-w-md">
+          <GlassCard>
+            <div className="text-center text-white">Loading...</div>
+          </GlassCard>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }
