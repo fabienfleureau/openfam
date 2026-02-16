@@ -1,18 +1,88 @@
 export function GeometricBackground() {
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
-      {/* Animated gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-violet-800 to-indigo-900 animate-gradient-shift" />
+      {/* Dark gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950" />
 
-      {/* Floating geometric shapes */}
-      <div className="absolute top-20 left-10 w-64 h-64 bg-pink-500/20 rounded-full blur-3xl animate-blob" />
-      <div className="absolute top-40 right-20 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl animate-blob animation-delay-2000" />
-      <div className="absolute bottom-20 left-1/3 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-blob animation-delay-4000" />
+      {/* Large lava blobs - warm colors */}
+      <div className="absolute top-0 left-0 w-full h-full">
+        {/* Red blob - large */}
+        <div
+          className="absolute w-[600px] h-[600px] bg-red-600/30 rounded-full blur-3xl animate-blob"
+          style={{
+            top: '10%',
+            left: '10%',
+            animationDelay: '0s',
+          }}
+        />
 
-      {/* Geometric forms */}
-      <div className="absolute top-1/4 right-1/4 w-32 h-32 border border-white/10 rotate-45 animate-float" />
-      <div className="absolute bottom-1/3 left-1/4 w-24 h-24 border border-white/10 rounded-full animate-float animation-delay-2000" />
-      <div className="absolute top-2/3 right-1/3 w-16 h-16 bg-white/5 rotate-12 animate-float animation-delay-4000" />
+        {/* Orange blob - large */}
+        <div
+          className="absolute w-[700px] h-[700px] bg-orange-500/25 rounded-full blur-3xl animate-blob"
+          style={{
+            top: '30%',
+            right: '10%',
+            animationDelay: '2s',
+          }}
+        />
+
+        {/* Pink blob - large */}
+        <div
+          className="absolute w-[500px] h-[500px] bg-pink-600/30 rounded-full blur-3xl animate-blob"
+          style={{
+            bottom: '10%',
+            left: '20%',
+            animationDelay: '4s',
+          }}
+        />
+
+        {/* Purple blob - large */}
+        <div
+          className="absolute w-[650px] h-[650px] bg-purple-600/25 rounded-full blur-3xl animate-blob"
+          style={{
+            bottom: '20%',
+            right: '15%',
+            animationDelay: '1s',
+          }}
+        />
+
+        {/* Yellow blob - medium */}
+        <div
+          className="absolute w-[400px] h-[400px] bg-yellow-500/20 rounded-full blur-3xl animate-blob"
+          style={{
+            top: '40%',
+            left: '40%',
+            animationDelay: '3s',
+          }}
+        />
+
+        {/* Magenta blob - medium */}
+        <div
+          className="absolute w-[450px] h-[450px] bg-fuchsia-600/25 rounded-full blur-3xl animate-blob"
+          style={{
+            top: '15%',
+            right: '30%',
+            animationDelay: '5s',
+          }}
+        />
+      </div>
+
+      {/* Small floating blobs for extra detail */}
+      {[...Array(8)].map((_, i) => (
+        <div
+          key={`small-blob-${i}`}
+          className="absolute rounded-full blur-2xl animate-float"
+          style={{
+            width: `${100 + Math.random() * 150}px`,
+            height: `${100 + Math.random() * 150}px`,
+            top: `${Math.random() * 80}%`,
+            left: `${Math.random() * 80}%`,
+            background: `rgba(${200 + Math.random() * 55}, ${50 + Math.random() * 100}, ${100 + Math.random() * 100}, ${0.1 + Math.random() * 0.15})`,
+            animationDelay: `${Math.random() * 6}s`,
+            animationDuration: `${6 + Math.random() * 4}s`,
+          }}
+        />
+      ))}
     </div>
   )
 }
