@@ -91,6 +91,11 @@ export async function runMigrations(): Promise<void> {
             sql = readFileSync(sqlPath, 'utf-8');
           }
 
+          // Ensure we have SQL to execute
+          if (!sql) {
+            throw new Error(`Migration ${migration.name} has no SQL to execute`);
+          }
+
           await client.query(sql);
           await client.query('INSERT INTO _migrations (id) VALUES ($1)', [migration.name]);
           await client.query('COMMIT');
