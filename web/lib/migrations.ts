@@ -1,6 +1,19 @@
-import { getPool } from './db';
+import { getPool } from './db.js';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const migrations = [
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+interface Migration {
+  name: string;
+  sql?: string;
+  sqlFile?: string;
+}
+
+const migrations: Migration[] = [
   {
     name: '001_initial_schema',
     sql: `
@@ -26,6 +39,10 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_profiles_name ON profiles(name);
       CREATE INDEX IF NOT EXISTS idx_mac_addresses ON profile_mac_addresses(mac_address);
     `
+  },
+  {
+    name: '002_create_family_profiles_table',
+    sqlFile: './migrations/002_create_family_profiles_table.sql'
   }
 ];
 
@@ -67,7 +84,14 @@ export async function runMigrations(): Promise<void> {
         await client.query('BEGIN');
 
         try {
-          await client.query(migration.sql);
+          // Get SQL - either inline or from file
+          let sql = migration.sql;
+          if (migration.sqlFile) {
+            const sqlPath = join(__dirname, migration.sqlFile);
+            sql = readFileSync(sqlPath, 'utf-8');
+          }
+
+          await client.query(sql);
           await client.query('INSERT INTO _migrations (id) VALUES ($1)', [migration.name]);
           await client.query('COMMIT');
           console.log(`✓ Migration ${migration.name} complete`);
