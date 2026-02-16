@@ -1,4 +1,22 @@
+'use client'
+
+import { useMemo } from 'react'
+
 export function GeometricBackground() {
+  // Generate random blob positions once, not on every render
+  const smallBlobs = useMemo(() => {
+    return [...Array(8)].map((_, i) => ({
+      id: i,
+      width: 100 + Math.random() * 150,
+      height: 100 + Math.random() * 150,
+      top: Math.random() * 80,
+      left: Math.random() * 80,
+      background: `rgba(${200 + Math.random() * 55}, ${50 + Math.random() * 100}, ${100 + Math.random() * 100}, ${0.1 + Math.random() * 0.15})`,
+      animationDelay: Math.random() * 6,
+      animationDuration: 6 + Math.random() * 4,
+    }))
+  }, [])
+
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden">
       {/* Dark gradient background */}
@@ -68,18 +86,18 @@ export function GeometricBackground() {
       </div>
 
       {/* Small floating blobs for extra detail */}
-      {[...Array(8)].map((_, i) => (
+      {smallBlobs.map((blob) => (
         <div
-          key={`small-blob-${i}`}
+          key={blob.id}
           className="absolute rounded-full blur-2xl animate-float"
           style={{
-            width: `${100 + Math.random() * 150}px`,
-            height: `${100 + Math.random() * 150}px`,
-            top: `${Math.random() * 80}%`,
-            left: `${Math.random() * 80}%`,
-            background: `rgba(${200 + Math.random() * 55}, ${50 + Math.random() * 100}, ${100 + Math.random() * 100}, ${0.1 + Math.random() * 0.15})`,
-            animationDelay: `${Math.random() * 6}s`,
-            animationDuration: `${6 + Math.random() * 4}s`,
+            width: `${blob.width}px`,
+            height: `${blob.height}px`,
+            top: `${blob.top}%`,
+            left: `${blob.left}%`,
+            background: blob.background,
+            animationDelay: `${blob.animationDelay}s`,
+            animationDuration: `${blob.animationDuration}s`,
           }}
         />
       ))}
