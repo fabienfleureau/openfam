@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { createAuthCommand } from './commands/auth.js';
 import { createDevicesCommand } from './commands/devices.js';
+import { createInstallCommand } from './commands/install.js';
 import { setDebug } from './utils/logger.js';
 
 const program = new Command();
@@ -17,6 +18,7 @@ program
 // Add command groups
 program.addCommand(createAuthCommand());
 program.addCommand(createDevicesCommand());
+program.addCommand(createInstallCommand());
 
 // Default action - show help if no command provided
 program.action(() => {
