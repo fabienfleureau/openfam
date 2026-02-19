@@ -1,4 +1,4 @@
-# Open-F.A.M. MVP Design
+# OpenFAM MVP Design
 
 **Date:** 2025-02-19
 **Status:** Approved
@@ -6,7 +6,7 @@
 
 ## Overview
 
-Open-F.A.M. ("The smart heart of your family's network") is a parental control system. This MVP focuses on **CLI management** and **router agent** that automatically applies NextDNS profiles based on time-based schedules per device.
+OpenFAM ("The smart heart of your family's network") is a parental control system. This MVP focuses on **CLI management** and **router agent** that automatically applies NextDNS profiles based on time-based schedules per device.
 
 **Removed from original scope:** Web dashboard (deferred to future; config file will be replaced by API later)
 
