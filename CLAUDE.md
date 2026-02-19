@@ -29,51 +29,71 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Open-F.A.M.** ("The smart heart of your family's network") is a parental control system built as three interconnected modules:
+**Open-F.A.M.** ("The smart heart of your family's network") is a parental control system. This MVP focuses on **CLI management** and **router agent** that automatically applies NextDNS profiles based on time-based schedules per device.
 
-1. **Cloud Dashboard** (`web/`) - Next.js + Tailwind + Supabase frontend
-2. **Router Agent** (`fam-agent`) - Ash script for OpenWrt routers (to be implemented)
-3. **Installer CLI** (`openfam-cli/`) - TypeScript/Node.js management tool
+### Architecture
 
-The system implements zero-trust network access, profile-based filtering, time-based schedules, and a "bonus time" request system.
+**CLI (`openfam-cli/`)** - Runs on your computer, communicates via SSH to manage config
+**Agent (`fam-agent/`)** - Lives on OpenWrt router, polls config every 5 minutes
+**Config** - `/etc/fam/config.toml` single source of truth
+
+### Commands
+
+```bash
+openfam install [--check]      # Install agent on router
+openfam profiles list           # List user profiles
+openfam devices scan            # Scan for connected devices
+openfam schedule add <id>       # Add time-based schedule
+openfam status                  # Check agent status
+openfam logs                    # View agent logs
+```
 
 ## Architecture
 
 ### Communication Pattern
-All modules communicate via a **JSON-based state exchange**. The router polls the cloud API for configuration and applies it locally via plugin scripts.
+All modules communicate via a **TOML-based config**. The router agent polls the local config file every 5 minutes and applies NextDNS profiles accordingly.
 
-### Router Plugin Architecture
-The router agent (`/etc/fam/agent.sh`) orchestrates plugins in `/etc/fam/plugins/`:
+### Router Agent Architecture
+The router agent (`/etc/fam/agent.sh`) polls config and applies NextDNS settings:
 
 ```
 /etc/fam/
-├── config.json         # Local cache of cloud config
-├── agent.sh            # Master loop orchestrator
-├── plugins/
-│   ├── dns.sh          # DNS management (UCI dnsmasq)
-│   ├── firewall.sh     # NFTables rules per MAC
-│   ├── appblock.sh     # OpenAppFilter (OAF) integration
-│   └── portal.sh       # OpenNDS captive portal logic
-└── fail_safe/
-    └── reset.sh        # Emergency reset (panic button)
+├── config.toml         # TOML configuration (single source of truth)
+├── agent.sh            # Main orchestrator (runs every 5 min via cron)
+├── lib/
+│   ├── log.sh          # Logging utilities
+│   ├── config.sh       # Config parsing helpers
+│   ├── schedule.sh     # Time/day utilities
+│   └── nextdns.sh      # NextDNS command builder
+├── logs/
+│   └── fam.log         # Agent logs
+└── last-command.txt    # Last executed NextDNS command
 ```
 
-### JSON Schema (Router ↔ Cloud Contract)
-```json
-{
-  "router_id": "FAM-9923",
-  "global_settings": { "dns_provider": "nextdns", "quarantine_new": true },
-  "profiles": [
-    {
-      "id": "child_01",
-      "macs": ["AA:BB:CC:DD:EE:FF"],
-      "schedule": [
-        { "time": "16:00-18:00", "mode": "homework", "apps": ["tiktok:block", "roblox:block"] },
-        { "time": "21:00-07:00", "mode": "sleep", "internet": "off" }
-      ]
-    }
-  ]
-}
+### TOML Config Schema
+```toml
+[general]
+timezone = "UTC"
+nextdns_default_profile = "default"
+
+[nextdns.profiles.default]
+id = "abc123"
+name = "Default Profile"
+link = "https://my.nextdns.io/profile/abc123"
+
+[[profiles]]
+name = "Emma"
+default_nextdns = "default"
+
+[[profiles.macs]]
+address = "AA:BB:CC:DD:EE:FF"
+name = "Emma's Phone"
+
+[[profiles.schedule]]
+days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+time_start = "21:00"
+time_end = "07:00"
+nextdns = "restricted"
 ```
 
 ## Installer CLI (`openfam-cli/`)
@@ -90,14 +110,37 @@ cd openfam-cli/
 npm install && npm run build
 
 # Check router connectivity
-node dist/cli.js auth check
+node dist/cli.js install --check
 
-# List connected devices (with status)
+# Full installation on router
+node dist/cli.js install
+
+# Manage profiles
+node dist/cli.js profiles list
+node dist/cli.js profiles add "Emma"
+node dist/cli.js profiles show 1
+
+# Manage devices
+node dist/cli.js devices scan
 node dist/cli.js devices list
-node dist/cli.js devices list --json  # JSON output
+node dist/cli.js devices add 1 AA:BB:CC:DD:EE:FF --name "Phone"
 
-# Debug mode (verbose output)
-node dist/cli.js --debug auth check
+# Manage schedules
+node dist/cli.js schedule add 1
+node dist/cli.js schedule show 1
+
+# Manage NextDNS profiles
+node dist/cli.js nextdns list
+node dist/cli.js nextdns add abc123 "Restricted"
+
+# Status and logs
+node dist/cli.js status
+node dist/cli.js logs
+node dist/cli.js logs --tail
+
+# Or link globally
+npm link
+openfam --help
 ```
 
 ### Configuration
@@ -158,35 +201,36 @@ npm run lint            # ESLint
 npm run type-check      # TypeScript validation
 ```
 
-## Router Agent (OpenWrt) - To Be Implemented
+## Router Agent (OpenWrt)
 
 ### Language & Tools
 - **Shell**: POSIX-compliant Ash (busybox)
-- **JSON**: `jq` for parsing
-- **Config**: UCI (Unified Configuration Interface)
-- **Firewall**: NFTables
-- **Captive Portal**: OpenNDS
-- **App Filtering**: OpenAppFilter (OAF)
+- **Config**: TOML format (simpler than JSON for shell parsing)
+- **DNS**: NextDNS CLI (`/usr/sbin/nextdns`)
+- **Scheduling**: Cron runs agent every 5 minutes
 
 ### Key Patterns
-- **UCI Operations**: Use `uci show/set/get/delete` for all config changes
-- **JSON Parsing**: All config exchange via `jq`
-- **Idempotency**: Plugins must handle repeated execution safely
-- **Error Handling**: Always check exit codes, log to `/tmp/fam.log`
+- **TOML Parsing**: Simple awk/grep parsing for Ash shell compatibility
+- **Idempotency**: Agent tracks last executed command, only runs on change
+- **Error Handling**: All functions log to `/etc/fam/logs/fam.log`
+- **Lock File**: Prevents concurrent execution
 
 ### Router Testing
 ```bash
 # SSH to router
 ssh root@192.168.1.1
 
-# Test plugin manually
-/etc/fam/plugins/dns.sh
+# Test agent manually
+/etc/fam/agent.sh
 
 # View logs
-tail -f /tmp/fam.log
+tail -f /etc/fam/logs/fam.log
 
-# Test JSON parsing
-echo '{"profiles":[]}' | jq '.'
+# Check last command
+cat /etc/fam/last-command.txt
+
+# View config
+cat /etc/fam/config.toml
 ```
 
 ## Security Fail-Safe
@@ -201,10 +245,11 @@ The physical reset button (`/etc/rc.button/reset`) MUST:
 
 ## Implementation Phases
 
-1. **Phase 1**: CLI + Bootstrap (TypeScript installer, OpenWrt bootstrap script)
-2. **Phase 2**: Router Agent + Device Detection (MAC detection, JSON polling)
-3. **Phase 3**: Captive Portal + Webhooks (OpenNDS, approval requests)
-4. **Phase 4**: Granular Filtering (OAF integration, NextDNS switching)
+1. **Phase 1 (MVP - Complete)**: CLI + Router Agent with TOML config + NextDNS integration
+2. **Phase 2 (Future)**: Time-based scheduling with day/time profiles
+3. **Phase 3 (Future)**: Cloud Dashboard (Next.js + Supabase)
+4. **Phase 4 (Future)**: Captive Portal + Webhooks (OpenNDS, approval requests)
+5. **Phase 5 (Future)**: Granular Filtering (OAF integration, app-level blocking)
 
 ## Key Conventions
 
