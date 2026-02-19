@@ -1,105 +1,126 @@
 #!/bin/ash
-# OpenFAM Router Agent - Main Orchestrator
-# Idempotent, signal-safe, and ready for OpenWrt routers
+# Open-F.A.M. Router Agent - Polls config and applies NextDNS profiles
 
 set -e
 
-# Paths
-FAM_CONFIG="/etc/fam/config.json"
-FAM_PLUGINS="/etc/fam/plugins"
-FAM_STATE="/var/run/fam/state.json"
-FAM_LOCK="/var/run/fam/agent.pid"
+FAM_DIR="/etc/fam"
+FAM_CONFIG="$FAM_DIR/config.toml"
+FAM_LIB="$FAM_DIR/lib"
+FAM_LAST_CMD="$FAM_DIR/last-command.txt"
 
-# Logging
-FAM_LOG="/tmp/fam.log"
+# Load libraries
+. "$FAM_LIB/log.sh"
+. "$FAM_LIB/config.sh"
+. "$FAM_LIB/schedule.sh"
+. "$FAM_LIB/nextdns.sh"
 
-log() { echo "[$(date +%T)] $@" >> "$FAM_LOG"; }
-log_err() { echo "[$(date +%T)] ERROR: $@" >&2; echo "$@" >> "$FAM_LOG"; }
-
-# Ensure directories
-ensure_dirs() {
-    [ ! -d "$FAM_CONFIG" ] && mkdir -p "$(dirname "$FAM_CONFIG")"
-    [ ! -d "$FAM_STATE" ] && mkdir -p "$(dirname "$FAM_STATE")"
-    [ ! -d "$(dirname "$FAM_LOCK")" ] && mkdir -p "$(dirname "$FAM_LOCK")"
-}
-
-# Initialize default config
-init_config() {
-    if [ ! -f "$FAM_CONFIG" ]; then
-        cat > "$FAM_CONFIG" << 'EOF'
-{
-  "router_id": "FAM-XXXX",
-  "global_settings": {
-    "dns_provider": "nextdns",
-    "quarantine_new": true
-  },
-  "profiles": []
-}
-EOF
-        log "Initialized default config"
+# Prevent concurrent execution
+FAM_LOCK="/var/run/fam-agent.pid"
+if [ -f "$FAM_LOCK" ]; then
+    old_pid=$(cat "$FAM_LOCK" 2>/dev/null)
+    if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+        log "Agent already running (PID: $old_pid)"
+        exit 0
     fi
+fi
+echo $$ > "$FAM_LOCK"
+trap 'rm -f "$FAM_LOCK"' EXIT
+
+log "=== Agent run started ==="
+
+# Validate config
+if ! validate_config; then
+    log_err "Config validation failed"
+    exit 1
+fi
+
+# Set timezone
+TZ=$(get_timezone)
+export TZ
+
+CURRENT_DAY=$(get_current_day)
+CURRENT_TIME=$(get_current_time)
+log "Current: $CURRENT_DAY $CURRENT_TIME (TZ: $TZ)"
+
+# Build device mappings from TOML config
+# Simplified parser for ash
+parse_profiles() {
+    local in_profile=0
+    local in_macs=0
+    local profile_name=""
+    local profile_default=""
+    local mac_address=""
+    local result=""
+
+    while IFS= read -r line; do
+        case "$line" in
+            ''|\#*) continue ;;
+        esac
+
+        if echo "$line" | grep -q '^\[\[profiles\]\]'; then
+            in_profile=1
+            in_macs=0
+            profile_name=""
+            profile_default=""
+            continue
+        fi
+
+        if [ $in_profile -eq 1 ]; then
+            if echo "$line" | grep -q '^\[\['; then
+                in_profile=0
+                continue
+            fi
+
+            case "$line" in
+                name\ =*)
+                    profile_name=$(echo "$line" | sed 's/.*= *"\([^"]*\)".*/\1/')
+                    ;;
+                default_nextdns\ =*)
+                    profile_default=$(echo "$line" | sed 's/.*= *"\([^"]*\)".*/\1/')
+                    ;;
+                \[\[profiles.macs\]\])
+                    in_macs=1
+                    ;;
+                address\ =*)
+                    if [ $in_macs -eq 1 ]; then
+                        mac_address=$(echo "$line" | sed 's/.*= *"\([^"]*\)".*/\1/' | tr 'a-z' 'A-Z')
+                        if [ -n "$mac_address" ]; then
+                            if [ -n "$result" ]; then
+                                result="$result,$mac_address=$profile_default"
+                            else
+                                result="$mac_address=$profile_default"
+                            fi
+                        fi
+                    fi
+                    ;;
+                name\ =*\")  # MAC name entry, skip
+                    ;;
+            esac
+        fi
+    done < "$FAM_CONFIG"
+
+    echo "$result"
 }
 
-# Signal handling
-trap 'release_lock; exit 0' INT TERM
+DEVICE_MAPPINGS=$(parse_profiles)
 
-release_lock() {
-    rm -f "$FAM_LOCK/agent.pid" 2>/dev/null
-}
+# Build NextDNS command
+NEW_COMMAND=$(build_nextdns_command "$DEVICE_MAPPINGS")
 
-# Plugin loader
-load_plugin() {
-    local name="$1"
-    local script="$FAM_PLUGINS/${name}.sh"
+# Compare with last command
+if [ -f "$FAM_LAST_CMD" ]; then
+    LAST_COMMAND=$(cat "$FAM_LAST_CMD")
+else
+    LAST_COMMAND=""
+fi
 
-    if [ -x "$script" ]; then
-        . "$script"
-    else
-        log_err "Plugin not found: $name"
-        return 1
-    fi
-}
+if [ "$NEW_COMMAND" != "$LAST_COMMAND" ]; then
+    log "Configuration changed, applying..."
+    execute_nextdns_config "$DEVICE_MAPPINGS"
+    echo "$NEW_COMMAND" > "$FAM_LAST_CMD"
+    log "Configuration applied"
+else
+    log "No changes detected, skipping"
+fi
 
-# Main agent loop
-agent_loop() {
-    log "=== Agent starting (Router: $(jq -r '.router_id' "$FAM_CONFIG" 2>/dev/null) ==="
-
-    # Ensure config exists
-    if [ ! -f "$FAM_CONFIG" ]; then
-        log_err "Config not found"
-        exit 1
-    fi
-
-    # Start state polling in background
-    if [ -x "$FAM_SCRIPTS/poll-state.sh" ]; then
-        "$FAM_SCRIPTS/poll-state.sh" &
-        log "State polling started"
-    fi
-
-    # Main polling loop
-    while true; do
-        # Load config
-        local profiles
-        profiles=$(jq -r '.profiles[]' "$FAM_CONFIG" 2>/dev/null)
-
-        # Iterate through profiles
-        for profile in $profiles; do
-            local macs
-            macs=$(jq -r --arg profile ".macs[]" "$profile" 2>/dev/null)
-
-            # Call DNS plugin for each MAC
-            for mac in $macs; do
-                load_plugin dns "$mac"
-            done
-        done
-
-        sleep 60
-    done
-}
-
-# Setup
-ensure_dirs
-init_config
-
-# Run
-agent_loop
+log "=== Agent run completed ==="
