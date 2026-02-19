@@ -8,6 +8,8 @@ import { createInstallCommand } from './commands/install.js';
 import { createProfilesCommand } from './commands/profiles.js';
 import { createNextDNSCommand } from './commands/nextdns.js';
 import { createScheduleCommand } from './commands/schedule.js';
+import { createLogsCommand } from './commands/logs.js';
+import { createStatusCommand } from './commands/status.js';
 import { setDebug } from './utils/logger.js';
 
 const program = new Command();
@@ -25,6 +27,8 @@ program.addCommand(createInstallCommand());
 program.addCommand(createProfilesCommand());
 program.addCommand(createNextDNSCommand());
 program.addCommand(createScheduleCommand());
+program.addCommand(createLogsCommand());
+program.addCommand(createStatusCommand());
 
 // Default action - show help if no command provided
 program.action(() => {
