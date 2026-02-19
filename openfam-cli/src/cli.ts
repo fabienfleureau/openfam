@@ -7,6 +7,7 @@ import { createDevicesCommand } from './commands/devices.js';
 import { createInstallCommand } from './commands/install.js';
 import { createProfilesCommand } from './commands/profiles.js';
 import { createNextDNSCommand } from './commands/nextdns.js';
+import { createScheduleCommand } from './commands/schedule.js';
 import { setDebug } from './utils/logger.js';
 
 const program = new Command();
@@ -23,6 +24,7 @@ program.addCommand(createDevicesCommand());
 program.addCommand(createInstallCommand());
 program.addCommand(createProfilesCommand());
 program.addCommand(createNextDNSCommand());
+program.addCommand(createScheduleCommand());
 
 // Default action - show help if no command provided
 program.action(() => {
