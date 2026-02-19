@@ -43,7 +43,11 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error('Auth error in POST /api/profiles:', error?.message || 'No user found');
+    return NextResponse.json(
+      { error: 'Unauthorized', details: error?.message || 'No user found' },
+      { status: 401 }
+    );
   }
 
   try {
