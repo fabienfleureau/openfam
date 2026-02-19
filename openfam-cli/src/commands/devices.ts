@@ -1,218 +1,153 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import ora from 'ora';
+import inquirer from 'inquirer';
 import { SSHClient } from '../ssh/client.js';
-import { loadConfig } from '../config.js';
-
-interface Device {
-  mac: string;
-  ip: string;
-  hostname?: string;
-  interface: string;
-  connected: boolean;
-}
+import { RouterService } from '../services/router-service.js';
+import { ConfigManager } from '../services/config-manager.js';
+import { loadConfig as loadSSHConfig } from '../config.js';
+import { isValidMacAddress } from '../types/config.js';
 
 export function createDevicesCommand(): Command {
-  const cmd = new Command('devices');
-  cmd.description('Device management commands');
+  const cmd = new Command('devices').description('Manage devices');
 
-  const listCmd = new Command('list')
-    .description('List all connected devices on the network')
-    .option('-j, --json', 'Output as JSON')
-    .action(async (options) => {
-      const spinner = ora('Connecting to router...').start();
+  cmd.command('scan').description('Scan for devices').action(scanDevices);
+  cmd.command('list').description('List all devices').action(listDevices);
+  cmd.command('add <profileId> <mac>')
+    .option('--name <name>', 'Device name')
+    .action(addDevice);
+  cmd.command('remove <mac>').description('Remove device').action(removeDevice);
 
-      try {
-        const config = loadConfig();
-        const client = new SSHClient(config);
-
-        await client.connect();
-        spinner.text = 'Fetching connected devices...';
-
-        // Detect LAN interface from network config
-        const networkResult = await client.exec('uci get network.lan.ifname');
-        let lanInterface = 'br-lan'; // OpenWrt default fallback
-
-        if (networkResult.exitCode === 0 && networkResult.stdout.trim()) {
-          // May return a bridge (br-lan) or physical interface list (eth0 eth1 eth2)
-          const ifname = networkResult.stdout.trim();
-          lanInterface = ifname.split(' ')[0]; // Take first interface if multiple
-        }
-
-        // Get current timestamp for filtering active leases
-        const timeResult = await client.exec('date +%s');
-        const currentTime = parseInt(timeResult.stdout.trim(), 10);
-
-        // Get ARP table for connected devices
-        const arpResult = await client.exec('cat /proc/net/arp');
-
-        if (arpResult.exitCode !== 0) {
-          spinner.fail(chalk.red('Failed to fetch ARP table'));
-          client.disconnect();
-          process.exit(1);
-        }
-
-        // Parse ARP table
-        const devices = parseArpTable(arpResult.stdout);
-
-        // Filter to only LAN devices (exclude WAN)
-        const lanDevices = devices.filter(d => d.interface === lanInterface);
-
-        // Get DHCP leases for hostnames (only active leases)
-        const leasesResult = await client.exec('cat /tmp/dhcp.leases');
-        const hostnameMap = parseDhcpLeases(leasesResult.stdout, currentTime);
-
-        // Merge hostname info (only for devices with active leases)
-        const devicesWithNames = lanDevices.map((device) => ({
-          ...device,
-          hostname: hostnameMap.get(device.mac) || hostnameMap.get(device.ip),
-        }));
-
-        spinner.stop();
-
-        if (options.json) {
-          console.log(JSON.stringify(devicesWithNames, null, 2));
-        } else {
-          displayDevices(devicesWithNames, config.routerIp);
-        }
-
-        client.disconnect();
-        process.exit(0);
-      } catch (error) {
-        spinner.fail(chalk.red('Failed to fetch devices'));
-        console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
-        process.exit(1);
-      }
-    });
-
-  cmd.addCommand(listCmd);
   return cmd;
 }
 
-function parseArpTable(output: string): Device[] {
-  const lines = output.split('\n');
-  const devices: Device[] = [];
+async function scanDevices(): Promise<void> {
+  const config = loadSSHConfig();
+  const ssh = new SSHClient(config);
+  const router = new RouterService(ssh);
 
-  // Skip header line
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+  try {
+    await ssh.connect();
+    const devices = await router.scanDevices();
 
-    // ARP table format: IP address HW type Flags HW address Mask Device
-    const parts = line.split(/\s+/);
-    if (parts.length >= 6) {
-      const ip = parts[0];
-      const hwType = parts[1];
-      const flags = parts[2];
-      const mac = parts[3];
-      const mask = parts[4];
-      const iface = parts[5];
-
-      // Skip incomplete entries (invalid MACs)
-      if (mac === '00:00:00:00:00:00' || mac.toLowerCase() === 'ff:ff:ff:ff:ff:ff') {
-        continue;
-      }
-
-      // Parse ARP flags to determine connection status
-      // 0x0 = incomplete (not reachable), 0x2 = complete (reachable)
-      const flagValue = parseInt(flags, 16);
-      const isConnected = flagValue === 0x2;
-
-      devices.push({
-        mac: mac.toUpperCase(),
-        ip,
-        interface: iface,
-        connected: isConnected,
-      });
+    if (devices.length === 0) {
+      console.log(chalk.yellow('No devices found'));
+      return;
     }
-  }
 
-  return devices;
+    console.log(chalk.cyan('\nConnected Devices:\n'));
+    devices.forEach(d => {
+      console.log(chalk.white(d.mac));
+      if (d.ip) console.log(chalk.gray(`  IP: ${d.ip}\n`));
+    });
+  } finally {
+    ssh.disconnect();
+  }
 }
 
-function parseDhcpLeases(output: string, currentTime: number): Map<string, string> {
-  const leases = new Map<string, string>();
-  const lines = output.split('\n');
+async function listDevices(): Promise<void> {
+  const config = loadSSHConfig();
+  const ssh = new SSHClient(config);
+  const router = new RouterService(ssh);
 
-  for (const line of lines) {
-    if (!line.trim()) continue;
+  try {
+    await ssh.connect();
+    const remoteConfig = await router.downloadConfig();
 
-    // DHCP leases format: timestamp mac ip hostname clientid
-    const parts = line.split(/\s+/);
-    if (parts.length >= 4) {
-      const expiryTime = parseInt(parts[0], 10);
-      const mac = parts[1].toUpperCase();
-      const ip = parts[2];
-      const hostname = parts[3] !== '*' ? parts[3] : undefined;
-
-      // Only include active leases (expiry time is in the future)
-      if (expiryTime > currentTime && hostname) {
-        leases.set(mac, hostname);
-        leases.set(ip, hostname);
-      }
+    if (!remoteConfig || remoteConfig.profiles.length === 0) {
+      console.log(chalk.yellow('No profiles/config found'));
+      return;
     }
-  }
 
-  return leases;
+    console.log(chalk.cyan('\nAll Devices:\n'));
+    remoteConfig.profiles.forEach(p => {
+      if (p.macs.length > 0) {
+        console.log(chalk.white(`${p.name}:`));
+        p.macs.forEach(m => console.log(chalk.gray(`  - ${m.address} (${m.name})`)));
+        console.log();
+      }
+    });
+  } finally {
+    ssh.disconnect();
+  }
 }
 
-function displayDevices(devices: Device[], routerIp: string): void {
-  // Split into connected and offline
-  const connected = devices.filter(d => d.connected);
-  const offline = devices.filter(d => !d.connected);
+async function addDevice(profileId: string, mac: string, options: { name?: string }): Promise<void> {
+  const config = loadSSHConfig();
+  const ssh = new SSHClient(config);
+  const router = new RouterService(ssh);
 
-  // Display connected devices
-  console.log(chalk.dim('─'.repeat(70)));
-  console.log(chalk.green.bold(`Connected (${connected.length})`));
-  console.log(chalk.dim('─'.repeat(70)));
+  try {
+    await ssh.connect();
+    const remoteConfig = await router.downloadConfig();
+    if (!remoteConfig) throw new Error('No config found');
 
-  if (connected.length === 0) {
-    console.log(chalk.yellow('  No connected devices'));
-  } else {
-    const sorted = [...connected].sort((a, b) => a.ip.localeCompare(b.ip));
-    for (const device of sorted) {
-      const isRouter = device.ip === routerIp;
-      const routerLabel = isRouter ? chalk.dim(' (router)') : '';
-      const statusIcon = chalk.green('●');
-
-      console.log(
-        `  ${statusIcon} ` +
-        `${chalk.cyan(device.ip.padEnd(15))} ` +
-        `${chalk.magenta(device.mac.padEnd(17))} ` +
-        `${chalk.white((device.hostname || 'Unknown').padEnd(20))} ` +
-        `${chalk.dim(device.interface)}${routerLabel}`
-      );
+    const macUpper = mac.toUpperCase();
+    if (!isValidMacAddress(macUpper)) {
+      throw new Error(`Invalid MAC format: ${mac} (must be XX:XX:XX:XX:XX:XX)`);
     }
-  }
 
-  // Display offline devices
-  if (offline.length > 0) {
-    console.log('');
-    console.log(chalk.dim('─'.repeat(70)));
-    console.log(chalk.red.bold(`Offline (${offline.length})`));
-    console.log(chalk.dim('─'.repeat(70)));
-
-    const sorted = [...offline].sort((a, b) => a.ip.localeCompare(b.ip));
-    for (const device of sorted) {
-      const statusIcon = chalk.gray('○');
-      const dimmed = (s: string) => chalk.dim(s);
-
-      console.log(
-        `  ${statusIcon} ` +
-        `${dimmed(device.ip.padEnd(15))} ` +
-        `${dimmed(device.mac.padEnd(17))} ` +
-        `${dimmed((device.hostname || 'Unknown').padEnd(20))} ` +
-        `${dimmed(device.interface)}`
-      );
+    const index = parseInt(profileId) - 1;
+    if (index < 0 || index >= remoteConfig.profiles.length) {
+      throw new Error('Invalid profile ID');
     }
-  }
 
-  console.log(chalk.dim('─'.repeat(70)));
-  console.log(
-    chalk.dim(`Total: ${chalk.bold(devices.length.toString())} device${devices.length !== 1 ? 's' : ''}  |  `) +
-    chalk.green(`${connected.length} connected`) +
-    chalk.dim('  |  ') +
-    chalk.red(`${offline.length} offline`)
-  );
-  console.log(chalk.dim('─'.repeat(70)));
+    const profile = remoteConfig.profiles[index];
+
+    for (const p of remoteConfig.profiles) {
+      if (p.macs.some(m => m.address === macUpper)) {
+        throw new Error(`MAC ${macUpper} already in "${p.name}"`);
+      }
+    }
+
+    let deviceName = options.name;
+    if (!deviceName) {
+      const answers = await inquirer.prompt([{
+        type: 'input',
+        name: 'name',
+        message: 'Device name:',
+        default: `Device ${macUpper.slice(-6)}`
+      }]);
+      deviceName = answers.name || `Device ${macUpper.slice(-6)}`;
+    }
+
+    profile.macs.push({ address: macUpper, name: deviceName! });
+    ConfigManager.validateConfig(remoteConfig);
+    await router.uploadConfig(remoteConfig);
+
+    console.log(chalk.green(`\n✓ Added "${deviceName}" to "${profile.name}"\n`));
+  } catch (error) {
+    console.log(chalk.red(`\n✗ ${error instanceof Error ? error.message : String(error)}\n`));
+    process.exit(1);
+  } finally {
+    ssh.disconnect();
+  }
+}
+
+async function removeDevice(mac: string): Promise<void> {
+  const config = loadSSHConfig();
+  const ssh = new SSHClient(config);
+  const router = new RouterService(ssh);
+
+  try {
+    await ssh.connect();
+    const remoteConfig = await router.downloadConfig();
+    if (!remoteConfig) throw new Error('No config found');
+
+    const macUpper = mac.toUpperCase();
+    for (const profile of remoteConfig.profiles) {
+      const idx = profile.macs.findIndex(m => m.address === macUpper);
+      if (idx !== -1) {
+        const removed = profile.macs.splice(idx, 1)[0];
+        await router.uploadConfig(remoteConfig);
+        console.log(chalk.green(`\n✓ Removed "${removed.name}" from "${profile.name}"\n`));
+        return;
+      }
+    }
+    throw new Error(`MAC ${macUpper} not found`);
+  } catch (error) {
+    console.log(chalk.red(`\n✗ ${error instanceof Error ? error.message : String(error)}\n`));
+    process.exit(1);
+  } finally {
+    ssh.disconnect();
+  }
 }
