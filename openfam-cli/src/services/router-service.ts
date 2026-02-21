@@ -41,9 +41,9 @@ export class RouterService {
     const toml = ConfigManager.serializeConfig(config);
     const tempPath = '/tmp/fam-config.toml';
 
-    // Escape TOML content for shell heredoc
-    const escapedToml = toml.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
-    await this.ssh.exec(`cat > ${tempPath} << 'FAMCONFIG'\n${toml}\nFAMCONFIG`);
+    // Use base64 encoding to safely transfer TOML content
+    const base64Toml = Buffer.from(toml).toString('base64');
+    await this.ssh.exec(`echo "${base64Toml}" | base64 -d > ${tempPath}`);
 
     const moveResult = await this.ssh.exec(`mv ${tempPath} ${FAM_CONFIG_PATH}`);
     if (moveResult.exitCode !== 0) {
