@@ -69,16 +69,23 @@ async function scanDevices(options: { showIpv6?: boolean }): Promise<void> {
     );
     console.log(chalk.gray('─'.repeat(95)));
 
-    // Table rows
-    filteredDevices.forEach(d => {
-      const profile = macToProfile.get(d.mac!);
-      console.log(
-        chalk.cyan((d.mac || '').padEnd(18)) +
-        chalk.white((d.ip || '').padEnd(40)) +
-        chalk.gray((d.hostname || '—').padEnd(20)) +
-        (profile ? chalk.green(profile) : chalk.dim('—'))
-      );
-    });
+    // Table rows (sort by IP)
+    filteredDevices
+      .sort((a, b) => {
+        // Handle missing IPs
+        if (!a.ip) return 1;
+        if (!b.ip) return -1;
+        return a.ip.localeCompare(b.ip, undefined, { numeric: true });
+      })
+      .forEach(d => {
+        const profile = macToProfile.get(d.mac!);
+        console.log(
+          chalk.cyan((d.mac || '').padEnd(18)) +
+          chalk.white((d.ip || '').padEnd(40)) +
+          chalk.gray((d.hostname || '—').padEnd(20)) +
+          (profile ? chalk.green(profile) : chalk.dim('—'))
+        );
+      });
     console.log();
   } finally {
     ssh.disconnect();
