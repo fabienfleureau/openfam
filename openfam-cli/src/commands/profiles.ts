@@ -53,11 +53,15 @@ async function addProfile(name: string): Promise<void> {
     if (!remoteConfig) throw new Error('No config found');
 
     const available = Object.keys(remoteConfig.nextdns.profiles);
+    const choices = available.map(key => ({
+      name: `${key} - ${remoteConfig.nextdns.profiles[key].name}`,
+      value: key
+    }));
     const answers = await inquirer.prompt([{
       type: 'list',
       name: 'defaultNextdns',
       message: 'Default NextDNS profile:',
-      choices: available
+      choices
     }]);
 
     const newProfile: Profile = {

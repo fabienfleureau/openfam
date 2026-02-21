@@ -33,6 +33,10 @@ async function addSchedule(profileId: string): Promise<void> {
 
     const profile = remoteConfig.profiles[index];
     const available = Object.keys(remoteConfig.nextdns.profiles);
+    const nextdnsChoices = available.map(key => ({
+      name: `${key} - ${remoteConfig.nextdns.profiles[key].name}`,
+      value: key
+    }));
 
     const answers = await inquirer.prompt([
       {
@@ -58,7 +62,7 @@ async function addSchedule(profileId: string): Promise<void> {
         type: 'list',
         name: 'nextdns',
         message: 'NextDNS profile:',
-        choices: available
+        choices: nextdnsChoices
       }
     ]);
 
