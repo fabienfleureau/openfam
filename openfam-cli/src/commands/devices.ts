@@ -36,20 +36,34 @@ async function scanDevices(): Promise<void> {
 
     console.log(chalk.cyan('\nConnected Devices:\n'));
 
-    // Table header (IPv6 can be up to 39 chars)
+    // Build MAC to profile mapping
+    const macToProfile = new Map<string, string>();
+    const remoteConfig = await router.downloadConfig();
+    if (remoteConfig) {
+      for (const profile of remoteConfig.profiles) {
+        for (const mac of profile.macs) {
+          macToProfile.set(mac.address.toUpperCase(), profile.name);
+        }
+      }
+    }
+
+    // Table header
     console.log(
       chalk.white('MAC Address'.padEnd(18)) +
       chalk.white('IP Address'.padEnd(40)) +
-      chalk.white('Hostname')
+      chalk.white('Hostname'.padEnd(20)) +
+      chalk.white('Profile')
     );
-    console.log(chalk.gray('─'.repeat(75)));
+    console.log(chalk.gray('─'.repeat(95)));
 
     // Table rows
     devices.forEach(d => {
+      const profile = macToProfile.get(d.mac!);
       console.log(
         chalk.cyan((d.mac || '').padEnd(18)) +
         chalk.white((d.ip || '').padEnd(40)) +
-        chalk.gray(d.hostname || '—')
+        chalk.gray((d.hostname || '—').padEnd(20)) +
+        (profile ? chalk.green(profile) : chalk.dim('—'))
       );
     });
     console.log();
