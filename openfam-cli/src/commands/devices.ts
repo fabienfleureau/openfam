@@ -144,9 +144,20 @@ async function addDevice(profileId: string, mac: string, options: { name?: strin
     const remoteConfig = await router.downloadConfig();
     if (!remoteConfig) throw new Error('No config found');
 
-    const macUpper = mac.toUpperCase();
-    if (!isValidMacAddress(macUpper)) {
-      throw new Error(`Invalid MAC format: ${mac} (must be XX:XX:XX:XX:XX:XX)`);
+    // Normalize MAC address - accept various formats
+    // aa:bb:cc:dd:ee:ff, aa-bb-cc-dd-ee-ff, aabbccddeeff -> AA:BB:CC:DD:EE:FF
+    let normalizedMac = mac.toUpperCase()
+      .replace(/-/g, ':')
+      .replace(/(.{2})(?!$)/g, '$1:');
+
+    // Remove trailing colon if present
+    if (normalizedMac.endsWith(':')) {
+      normalizedMac = normalizedMac.slice(0, -1);
+    }
+
+    // Validate format
+    if (!isValidMacAddress(normalizedMac)) {
+      throw new Error(`Invalid MAC format: ${mac} (must be XX:XX:XX:XX:XX:XX, XX-XX-XX-XX-XX-XX, or XXXXXXXXXXXX)`);
     }
 
     const index = parseInt(profileId) - 1;
@@ -157,8 +168,8 @@ async function addDevice(profileId: string, mac: string, options: { name?: strin
     const profile = remoteConfig.profiles[index];
 
     for (const p of remoteConfig.profiles) {
-      if (p.macs.some(m => m.address === macUpper)) {
-        throw new Error(`MAC ${macUpper} already in "${p.name}"`);
+      if (p.macs.some(m => m.address === normalizedMac)) {
+        throw new Error(`MAC ${normalizedMac} already in "${p.name}"`);
       }
     }
 
@@ -168,12 +179,12 @@ async function addDevice(profileId: string, mac: string, options: { name?: strin
         type: 'input',
         name: 'name',
         message: 'Device name:',
-        default: `Device ${macUpper.slice(-6)}`
+        default: `Device ${normalizedMac.slice(-6)}`
       }]);
-      deviceName = answers.name || `Device ${macUpper.slice(-6)}`;
+      deviceName = answers.name || `Device ${normalizedMac.slice(-6)}`;
     }
 
-    profile.macs.push({ address: macUpper, name: deviceName! });
+    profile.macs.push({ address: normalizedMac, name: deviceName! });
     ConfigManager.validateConfig(remoteConfig);
     await router.uploadConfig(remoteConfig);
 
@@ -196,9 +207,17 @@ async function removeDevice(mac: string): Promise<void> {
     const remoteConfig = await router.downloadConfig();
     if (!remoteConfig) throw new Error('No config found');
 
-    const macUpper = mac.toUpperCase();
+    // Normalize MAC address same way as addDevice
+    let normalizedMac = mac.toUpperCase()
+      .replace(/-/g, ':')
+      .replace(/(.{2})(?!$)/g, '$1:');
+
+    if (normalizedMac.endsWith(':')) {
+      normalizedMac = normalizedMac.slice(0, -1);
+    }
+
     for (const profile of remoteConfig.profiles) {
-      const idx = profile.macs.findIndex(m => m.address === macUpper);
+      const idx = profile.macs.findIndex(m => m.address === normalizedMac);
       if (idx !== -1) {
         const removed = profile.macs.splice(idx, 1)[0];
         await router.uploadConfig(remoteConfig);
@@ -206,7 +225,7 @@ async function removeDevice(mac: string): Promise<void> {
         return;
       }
     }
-    throw new Error(`MAC ${macUpper} not found`);
+    throw new Error(`MAC ${normalizedMac} not found`);
   } catch (error) {
     console.log(chalk.red(`\n✗ ${error instanceof Error ? error.message : String(error)}\n`));
     process.exit(1);
