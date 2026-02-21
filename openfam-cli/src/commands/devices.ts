@@ -36,19 +36,19 @@ async function scanDevices(): Promise<void> {
 
     console.log(chalk.cyan('\nConnected Devices:\n'));
 
-    // Table header
+    // Table header (IPv6 can be up to 39 chars)
     console.log(
       chalk.white('MAC Address'.padEnd(18)) +
-      chalk.white('IP Address'.padEnd(16)) +
+      chalk.white('IP Address'.padEnd(40)) +
       chalk.white('Hostname')
     );
-    console.log(chalk.gray('─'.repeat(50)));
+    console.log(chalk.gray('─'.repeat(75)));
 
     // Table rows
     devices.forEach(d => {
       console.log(
         chalk.cyan((d.mac || '').padEnd(18)) +
-        chalk.white((d.ip || '').padEnd(16)) +
+        chalk.white((d.ip || '').padEnd(40)) +
         chalk.gray(d.hostname || '—')
       );
     });
