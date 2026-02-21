@@ -10,7 +10,10 @@ import { isValidMacAddress } from '../types/config.js';
 export function createDevicesCommand(): Command {
   const cmd = new Command('devices').description('Manage devices');
 
-  cmd.command('scan').description('Scan for devices').action(scanDevices);
+  cmd.command('scan')
+    .description('Scan for devices')
+    .option('--show-ipv6', 'Show IPv6 addresses (hidden by default)')
+    .action(scanDevices);
   cmd.command('list').description('List all devices').action(listDevices);
   cmd.command('add <profileId> <mac>')
     .option('--name <name>', 'Device name')
@@ -20,7 +23,7 @@ export function createDevicesCommand(): Command {
   return cmd;
 }
 
-async function scanDevices(): Promise<void> {
+async function scanDevices(options: { showIpv6?: boolean }): Promise<void> {
   const config = loadSSHConfig();
   const ssh = new SSHClient(config);
   const router = new RouterService(ssh);
@@ -34,8 +37,6 @@ async function scanDevices(): Promise<void> {
       return;
     }
 
-    console.log(chalk.cyan('\nConnected Devices:\n'));
-
     // Build MAC to profile mapping
     const macToProfile = new Map<string, string>();
     const remoteConfig = await router.downloadConfig();
@@ -47,6 +48,18 @@ async function scanDevices(): Promise<void> {
       }
     }
 
+    // Filter out IPv6 addresses unless --show-ipv6 flag is set
+    const filteredDevices = options.showIpv6
+      ? devices
+      : devices.filter(d => !d.ip || !d.ip.includes(':'));
+
+    if (filteredDevices.length === 0) {
+      console.log(chalk.yellow('No devices found (IPv6 hidden, use --show-ipv6 to see all)'));
+      return;
+    }
+
+    console.log(chalk.cyan('\nConnected Devices:\n'));
+
     // Table header
     console.log(
       chalk.white('MAC Address'.padEnd(18)) +
@@ -57,7 +70,7 @@ async function scanDevices(): Promise<void> {
     console.log(chalk.gray('─'.repeat(95)));
 
     // Table rows
-    devices.forEach(d => {
+    filteredDevices.forEach(d => {
       const profile = macToProfile.get(d.mac!);
       console.log(
         chalk.cyan((d.mac || '').padEnd(18)) +
@@ -87,13 +100,28 @@ async function listDevices(): Promise<void> {
     }
 
     console.log(chalk.cyan('\nAll Devices:\n'));
+
+    // Table header
+    console.log(
+      chalk.white('MAC Address'.padEnd(18)) +
+      chalk.white('Device Name'.padEnd(25)) +
+      chalk.white('Profile')
+    );
+    console.log(chalk.gray('─'.repeat(55)));
+
+    // Table rows
     remoteConfig.profiles.forEach(p => {
       if (p.macs.length > 0) {
-        console.log(chalk.white(`${p.name}:`));
-        p.macs.forEach(m => console.log(chalk.gray(`  - ${m.address} (${m.name})`)));
-        console.log();
+        p.macs.forEach(m => {
+          console.log(
+            chalk.cyan(m.address.padEnd(18)) +
+            chalk.white(m.name.padEnd(25)) +
+            chalk.green(p.name)
+          );
+        });
       }
     });
+    console.log();
   } finally {
     ssh.disconnect();
   }
