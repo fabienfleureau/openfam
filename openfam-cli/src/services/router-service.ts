@@ -78,18 +78,29 @@ export class RouterService {
   }
 
   async scanDevices(): Promise<Array<{ mac: string; ip?: string }>> {
-    const arpResult = await this.ssh.exec('arp -n');
+    // Try ip neigh first (OpenWrt), fallback to arp -n
+    const result = await this.ssh.exec('ip neigh 2>/dev/null || arp -n 2>/dev/null');
     const devices: Array<{ mac: string; ip?: string }> = [];
 
-    if (arpResult.exitCode === 0) {
-      for (const line of arpResult.stdout.split('\n')) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 4) {
-          const ip = parts[0];
-          const mac = parts[3];
-          if (mac && mac !== '(incomplete)' && mac.includes(':')) {
-            devices.push({ mac: mac.toUpperCase(), ip });
-          }
+    for (const line of result.stdout.split('\n')) {
+      const parts = line.trim().split(/\s+/);
+
+      // ip neigh format: IP dev INTERFACE lladdr MAC STATE
+      // arp -n format: IP HWtype Flags HWaddress Mask Device
+      if (parts.length >= 5) {
+        const ip = parts[0];
+
+        // Find MAC address in different positions
+        let mac: string | undefined;
+        const lladdrIndex = parts.indexOf('lladdr');
+        if (lladdrIndex !== -1 && lladdrIndex + 1 < parts.length) {
+          mac = parts[lladdrIndex + 1];
+        } else if (parts.length >= 4 && parts[3].includes(':')) {
+          mac = parts[3];
+        }
+
+        if (mac && mac !== '(incomplete)' && mac.includes(':') && mac.match(/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/)) {
+          devices.push({ mac: mac.toUpperCase(), ip });
         }
       }
     }
