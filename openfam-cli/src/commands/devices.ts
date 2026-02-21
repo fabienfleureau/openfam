@@ -35,10 +35,24 @@ async function scanDevices(): Promise<void> {
     }
 
     console.log(chalk.cyan('\nConnected Devices:\n'));
+
+    // Table header
+    console.log(
+      chalk.white('MAC Address'.padEnd(18)) +
+      chalk.white('IP Address'.padEnd(16)) +
+      chalk.white('Hostname')
+    );
+    console.log(chalk.gray('─'.repeat(50)));
+
+    // Table rows
     devices.forEach(d => {
-      console.log(chalk.white(d.mac));
-      if (d.ip) console.log(chalk.gray(`  IP: ${d.ip}\n`));
+      console.log(
+        chalk.cyan((d.mac || '').padEnd(18)) +
+        chalk.white((d.ip || '').padEnd(16)) +
+        chalk.gray(d.hostname || '—')
+      );
     });
+    console.log();
   } finally {
     ssh.disconnect();
   }

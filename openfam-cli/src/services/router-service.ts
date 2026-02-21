@@ -77,7 +77,11 @@ export class RouterService {
     return result.stdout.trim();
   }
 
-  async scanDevices(): Promise<Array<{ mac: string; ip?: string }>> {
+  async scanDevices(): Promise<Array<{ mac: string; ip?: string; hostname?: string }>> {
+    // Get current timestamp for filtering active DHCP leases
+    const timeResult = await this.ssh.exec('date +%s');
+    const currentTime = parseInt(timeResult.stdout.trim(), 10) || Math.floor(Date.now() / 1000);
+
     // Try ip neigh first (OpenWrt), fallback to arp -n
     const result = await this.ssh.exec('ip neigh 2>/dev/null || arp -n 2>/dev/null');
     const devices: Array<{ mac: string; ip?: string }> = [];
@@ -105,7 +109,35 @@ export class RouterService {
       }
     }
 
-    return devices;
+    // Get DHCP leases for hostnames
+    const leasesResult = await this.ssh.exec('cat /tmp/dhcp.leases 2>/dev/null');
+    const hostnameMap = new Map<string, string>();
+
+    if (leasesResult.exitCode === 0) {
+      for (const line of leasesResult.stdout.split('\n')) {
+        if (!line.trim()) continue;
+        // DHCP leases format: timestamp mac ip hostname clientid
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 4) {
+          const expiryTime = parseInt(parts[0], 10);
+          const mac = parts[1].toUpperCase();
+          const ip = parts[2];
+          const hostname = parts[3] !== '*' ? parts[3] : undefined;
+
+          // Only include active leases
+          if (expiryTime > currentTime && hostname) {
+            hostnameMap.set(mac, hostname);
+            hostnameMap.set(ip, hostname);
+          }
+        }
+      }
+    }
+
+    // Merge hostnames
+    return devices.map(d => ({
+      ...d,
+      hostname: hostnameMap.get(d.mac!) || hostnameMap.get(d.ip!)
+    }));
   }
 
   async tailLogs(lines: number = 50): Promise<string> {
