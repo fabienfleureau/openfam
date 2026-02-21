@@ -39,11 +39,25 @@ export class RouterService {
 
   async uploadConfig(config: Config): Promise<void> {
     const toml = ConfigManager.serializeConfig(config);
+
+    // Write directly using echo with proper escaping
+    // Split into chunks to avoid line length limits
+    const lines = toml.split('\n');
     const tempPath = '/tmp/fam-config.toml';
 
-    // Use base64 encoding to safely transfer TOML content
-    const base64Toml = Buffer.from(toml).toString('base64');
-    await this.ssh.exec(`echo "${base64Toml}" | base64 -d > ${tempPath}`);
+    // Clear temp file first
+    await this.ssh.exec(`echo -n > ${tempPath}`);
+
+    // Write each line
+    for (const line of lines) {
+      // Escape special characters for shell
+      const escapedLine = line
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, '\\$')
+        .replace(/`/g, '\\`');
+      await this.ssh.exec(`echo "${escapedLine}" >> ${tempPath}`);
+    }
 
     const moveResult = await this.ssh.exec(`mv ${tempPath} ${FAM_CONFIG_PATH}`);
     if (moveResult.exitCode !== 0) {
