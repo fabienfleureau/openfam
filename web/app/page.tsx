@@ -48,7 +48,7 @@ export default function LandingPage() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-5xl md:text-8xl font-bold tracking-tighter mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40 leading-[0.9]"
         >
-          Total control at <br /> the network source.
+          Un-bypassable protection <br /> for the whole family.
         </motion.h1>
 
         <motion.p 

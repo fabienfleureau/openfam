@@ -13,7 +13,7 @@ log() {
 main() {
     log "=== FAIL-SAFE RESET ACTIVATED ==="
 
-    # 1. Stop the fam-agent
+    # 1. Stop the openfam-agent
     if [ -f /var/run/fam/agent.pid ]; then
         local pid=$(cat /var/run/fam/agent.pid 2>/dev/null)
         if [ -n "$pid" ]; then

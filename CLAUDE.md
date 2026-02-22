@@ -27,7 +27,7 @@ This repository is public hosted on github. Every commit must be 100% secure.
 ### Architecture
 
 **CLI (`openfam-cli/`)** - TypeScript-based management tool with both Command Line and TUI (Text User Interface) modes.
-**Agent (`fam-agent/`)** - POSIX shell scripts on OpenWrt, polling JSON state every 5 minutes.
+**Agent (`openfam-agent/`)** - POSIX shell scripts on OpenWrt, polling JSON state every 5 minutes.
 **Config** - `/etc/openfam/config.json` (The single source of truth on the router).
 
 ### Implementation Phases

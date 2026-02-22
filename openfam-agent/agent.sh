@@ -21,7 +21,7 @@ mkdir -p "$FAM_LOG_DIR"
 log "=== Agent run started ==="
 
 # Prevent concurrent execution
-FAM_LOCK="/var/run/fam-agent.pid"
+FAM_LOCK="/var/run/openfam-agent.pid"
 if [ -f "$FAM_LOCK" ]; then
     old_pid=$(cat "$FAM_LOCK" 2>/dev/null)
     if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then

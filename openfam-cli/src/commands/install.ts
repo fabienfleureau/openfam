@@ -10,15 +10,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // @ts-ignore
-import agentScript from '../../../fam-agent/agent.sh';
+import agentScript from '../../../openfam-agent/agent.sh';
 // @ts-ignore
-import configLib from '../../../fam-agent/lib/config.sh';
+import configLib from '../../../openfam-agent/lib/config.sh';
 // @ts-ignore
-import scheduleLib from '../../../fam-agent/lib/schedule.sh';
+import scheduleLib from '../../../openfam-agent/lib/schedule.sh';
 // @ts-ignore
-import nextdnsLib from '../../../fam-agent/lib/nextdns.sh';
+import nextdnsLib from '../../../openfam-agent/lib/nextdns.sh';
 // @ts-ignore
-import logLib from '../../../fam-agent/lib/log.sh';
+import logLib from '../../../openfam-agent/lib/log.sh';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
