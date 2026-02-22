@@ -162,8 +162,13 @@ async function addDevice(profileId: string, mac: string, options: { name?: strin
     }
 
     const index = parseInt(profileId) - 1;
+
+    if (!remoteConfig.profiles || remoteConfig.profiles.length === 0) {
+      throw new Error('No profiles found. Run: openfam profiles add <name> first');
+    }
+
     if (index < 0 || index >= remoteConfig.profiles.length) {
-      throw new Error('Invalid profile ID');
+      throw new Error(`Invalid profile ID: ${profileId}. Available profiles: 1-${remoteConfig.profiles.length}`);
     }
 
     const profile = remoteConfig.profiles[index];
