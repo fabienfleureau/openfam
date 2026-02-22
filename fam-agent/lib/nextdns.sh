@@ -28,7 +28,7 @@ build_nextdns_command() {
     local sorted_mappings=$(printf '%s' "$mappings" | tr ',' '\n' | sort)
     for mapping in $sorted_mappings; do
         if [ -n "$mapping" ]; then
-            cmd="$cmd --device $mapping"
+            cmd="$cmd --profile $mapping"
         fi
     done
     echo "$cmd"
