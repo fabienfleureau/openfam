@@ -146,13 +146,14 @@ async function addDevice(profileId: string, mac: string, options: { name?: strin
 
     // Normalize MAC address - accept various formats
     // aa:bb:cc:dd:ee:ff, aa-bb-cc-dd-ee-ff, aabbccddeeff -> AA:BB:CC:DD:EE:FF
-    let normalizedMac = mac.toUpperCase()
-      .replace(/-/g, ':')
-      .replace(/(.{2})(?!$)/g, '$1:');
+    let normalizedMac = mac.toUpperCase();
 
-    // Remove trailing colon if present
-    if (normalizedMac.endsWith(':')) {
-      normalizedMac = normalizedMac.slice(0, -1);
+    // Remove any existing separators first
+    normalizedMac = normalizedMac.replace(/[:\-]/g, '');
+
+    // Add colons every 2 characters
+    if (normalizedMac.length === 12) {
+      normalizedMac = normalizedMac.match(/.{2}/g)?.join(':') || normalizedMac;
     }
 
     // Validate format
@@ -208,12 +209,10 @@ async function removeDevice(mac: string): Promise<void> {
     if (!remoteConfig) throw new Error('No config found');
 
     // Normalize MAC address same way as addDevice
-    let normalizedMac = mac.toUpperCase()
-      .replace(/-/g, ':')
-      .replace(/(.{2})(?!$)/g, '$1:');
-
-    if (normalizedMac.endsWith(':')) {
-      normalizedMac = normalizedMac.slice(0, -1);
+    let normalizedMac = mac.toUpperCase();
+    normalizedMac = normalizedMac.replace(/[:\-]/g, '');
+    if (normalizedMac.length === 12) {
+      normalizedMac = normalizedMac.match(/.{2}/g)?.join(':') || normalizedMac;
     }
 
     for (const profile of remoteConfig.profiles) {
