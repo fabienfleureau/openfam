@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -8,13 +8,9 @@ export function UserMenu() {
   const [familyName, setFamilyName] = useState<string>('')
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
-  useEffect(() => {
-    loadFamilyName()
-  }, [])
-
-  const loadFamilyName = async () => {
+  const loadFamilyName = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase
@@ -27,7 +23,11 @@ export function UserMenu() {
         setFamilyName(profile.family_name)
       }
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    loadFamilyName()
+  }, [loadFamilyName])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

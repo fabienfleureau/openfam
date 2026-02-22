@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
+import Link from "next/link";
 import { UserMenu } from "@/components/UserMenu";
 
 const jetbrainsMono = JetBrains_Mono({

@@ -10,6 +10,7 @@ import { createNextDNSCommand } from './commands/nextdns.js';
 import { createScheduleCommand } from './commands/schedule.js';
 import { createLogsCommand } from './commands/logs.js';
 import { createStatusCommand } from './commands/status.js';
+import { createUICommand } from './commands/ui.js';
 import { setDebug } from './utils/logger.js';
 
 const program = new Command();
@@ -29,6 +30,7 @@ program.addCommand(createNextDNSCommand());
 program.addCommand(createScheduleCommand());
 program.addCommand(createLogsCommand());
 program.addCommand(createStatusCommand());
+program.addCommand(createUICommand());
 
 // Default action - show help if no command provided
 program.action(() => {
