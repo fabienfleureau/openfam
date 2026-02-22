@@ -10,103 +10,103 @@ import { isValidMacAddress } from '../types/config.js';
 export function createDevicesCommand(): Command {
   const cmd = new Command('devices').description('Manage devices');
 
+  // Default action - show both connected and configured devices
+  cmd.action(async (options) => {
+    await showDevices(options);
+  });
+
+  // Keep scan as alias with option
   cmd.command('scan')
     .description('Scan for devices')
     .option('--show-ipv6', 'Show IPv6 addresses (hidden by default)')
-    .action(scanDevices);
-  cmd.command('list').description('List all devices').action(listDevices);
+    .action(showDevices);
+
+  cmd.command('list')
+    .alias('ls')
+    .description('List all devices (alias for devices)')
+    .action(showDevices);
+
   cmd.command('add <profile> <mac>')
     .option('--name <name>', 'Device name')
     .action(addDevice);
-  cmd.command('remove <mac>').description('Remove device').action(removeDevice);
+
+  cmd.command('remove <mac>')
+    .description('Remove device')
+    .action(removeDevice);
 
   return cmd;
 }
 
-async function scanDevices(options: { showIpv6?: boolean }): Promise<void> {
+async function showDevices(options: { showIpv6?: boolean } = {}): Promise<void> {
   const config = loadSSHConfig();
   const ssh = new SSHClient(config);
   const router = new RouterService(ssh);
 
   try {
     await ssh.connect();
+
+    // Scan for connected devices
     const devices = await router.scanDevices();
 
     if (devices.length === 0) {
-      console.log(chalk.yellow('No devices found'));
-      return;
-    }
+      console.log(chalk.yellow('\nNo devices found on the network.\n'));
+    } else {
+      // Filter out IPv6 unless requested
+      const filteredDevices = options.showIpv6
+        ? devices
+        : devices.filter(d => !d.ip || !d.ip.includes(':'));
 
-    // Build MAC to profile mapping
-    const macToProfile = new Map<string, string>();
-    const remoteConfig = await router.downloadConfig();
-    if (remoteConfig) {
-      for (const profile of remoteConfig.profiles) {
-        for (const mac of profile.macs) {
-          macToProfile.set(mac.address.toUpperCase(), profile.name);
+      // Build MAC to profile mapping
+      const remoteConfig = await router.downloadConfig();
+      const macToProfile = new Map<string, string>();
+      if (remoteConfig) {
+        for (const profile of remoteConfig.profiles) {
+          for (const mac of profile.macs) {
+            macToProfile.set(mac.address.toUpperCase(), profile.name);
+          }
         }
       }
+
+      console.log(chalk.cyan('\nConnected Devices:\n'));
+
+      // Table header
+      console.log(
+        chalk.white('MAC Address'.padEnd(18)) +
+        chalk.white('IP Address'.padEnd(40)) +
+        chalk.white('Hostname'.padEnd(20)) +
+        chalk.white('Profile')
+      );
+      console.log(chalk.gray('─'.repeat(95)));
+
+      // Table rows (sort by IP)
+      filteredDevices
+        .sort((a, b) => {
+          if (!a.ip) return 1;
+          if (!b.ip) return -1;
+          return a.ip.localeCompare(b.ip, undefined, { numeric: true });
+        })
+        .forEach(d => {
+          const profile = macToProfile.get(d.mac!);
+          console.log(
+            chalk.cyan((d.mac || '').padEnd(18)) +
+            chalk.white((d.ip || '').padEnd(40)) +
+            chalk.gray((d.hostname || '—').padEnd(20)) +
+            (profile ? chalk.green(profile) : chalk.dim('—'))
+          );
+        });
+      console.log();
     }
 
-    // Filter out IPv6 addresses unless --show-ipv6 flag is set
-    const filteredDevices = options.showIpv6
-      ? devices
-      : devices.filter(d => !d.ip || !d.ip.includes(':'));
-
-    if (filteredDevices.length === 0) {
-      console.log(chalk.yellow('No devices found (IPv6 hidden, use --show-ipv6 to see all)'));
-      return;
-    }
-
-    console.log(chalk.cyan('\nConnected Devices:\n'));
-
-    // Table header
-    console.log(
-      chalk.white('MAC Address'.padEnd(18)) +
-      chalk.white('IP Address'.padEnd(40)) +
-      chalk.white('Hostname'.padEnd(20)) +
-      chalk.white('Profile')
-    );
-    console.log(chalk.gray('─'.repeat(95)));
-
-    // Table rows (sort by IP)
-    filteredDevices
-      .sort((a, b) => {
-        // Handle missing IPs
-        if (!a.ip) return 1;
-        if (!b.ip) return -1;
-        return a.ip.localeCompare(b.ip, undefined, { numeric: true });
-      })
-      .forEach(d => {
-        const profile = macToProfile.get(d.mac!);
-        console.log(
-          chalk.cyan((d.mac || '').padEnd(18)) +
-          chalk.white((d.ip || '').padEnd(40)) +
-          chalk.gray((d.hostname || '—').padEnd(20)) +
-          (profile ? chalk.green(profile) : chalk.dim('—'))
-        );
-      });
-    console.log();
-  } finally {
-    ssh.disconnect();
-  }
-}
-
-async function listDevices(): Promise<void> {
-  const config = loadSSHConfig();
-  const ssh = new SSHClient(config);
-  const router = new RouterService(ssh);
-
-  try {
-    await ssh.connect();
+    // Show configured devices
     const remoteConfig = await router.downloadConfig();
 
-    if (!remoteConfig || remoteConfig.profiles.length === 0) {
-      console.log(chalk.yellow('No profiles/config found'));
+    if (!remoteConfig || remoteConfig.profiles.length === 0 || remoteConfig.profiles.every(p => p.macs.length === 0)) {
+      console.log(chalk.gray('No devices configured yet.'));
+      console.log(chalk.gray('Add a device: openfam devices add <profile> <mac>\n'));
       return;
     }
 
-    console.log(chalk.cyan('\nAll Devices:\n'));
+    console.log(chalk.cyan('Configured Devices:\n'));
 
     // Table header
     console.log(
@@ -116,9 +116,11 @@ async function listDevices(): Promise<void> {
     );
     console.log(chalk.gray('─'.repeat(55)));
 
-    // Table rows
+    // Table rows (grouped by profile)
+    let hasDevices = false;
     remoteConfig.profiles.forEach(p => {
       if (p.macs.length > 0) {
+        hasDevices = true;
         p.macs.forEach(m => {
           console.log(
             chalk.cyan(m.address.padEnd(18)) +
@@ -128,7 +130,13 @@ async function listDevices(): Promise<void> {
         });
       }
     });
-    console.log();
+
+    if (!hasDevices) {
+      console.log(chalk.gray('No devices configured yet.'));
+      console.log(chalk.gray('Add a device: openfam devices add <profile> <mac>\n'));
+    } else {
+      console.log();
+    }
   } finally {
     ssh.disconnect();
   }
