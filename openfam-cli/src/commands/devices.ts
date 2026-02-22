@@ -15,7 +15,7 @@ export function createDevicesCommand(): Command {
     .option('--show-ipv6', 'Show IPv6 addresses (hidden by default)')
     .action(scanDevices);
   cmd.command('list').description('List all devices').action(listDevices);
-  cmd.command('add <profileId> <mac>')
+  cmd.command('add <profile> <mac>')
     .option('--name <name>', 'Device name')
     .action(addDevice);
   cmd.command('remove <mac>').description('Remove device').action(removeDevice);
@@ -134,7 +134,7 @@ async function listDevices(): Promise<void> {
   }
 }
 
-async function addDevice(profileId: string, mac: string, options: { name?: string }): Promise<void> {
+async function addDevice(profileIdentifier: string, mac: string, options: { name?: string }): Promise<void> {
   const config = loadSSHConfig();
   const ssh = new SSHClient(config);
   const router = new RouterService(ssh);
@@ -161,17 +161,25 @@ async function addDevice(profileId: string, mac: string, options: { name?: strin
       throw new Error(`Invalid MAC format: ${mac} (must be XX:XX:XX:XX:XX:XX, XX-XX-XX-XX-XX-XX, or XXXXXXXXXXXX)`);
     }
 
-    const index = parseInt(profileId) - 1;
-
     if (!remoteConfig.profiles || remoteConfig.profiles.length === 0) {
       throw new Error('No profiles found. Run: openfam profiles add <name> first');
     }
 
-    if (index < 0 || index >= remoteConfig.profiles.length) {
-      throw new Error(`Invalid profile ID: ${profileId}. Available profiles: 1-${remoteConfig.profiles.length}`);
+    // Find profile by name or ID
+    let profile = remoteConfig.profiles.find(p => p.name.toLowerCase() === profileIdentifier.toLowerCase());
+
+    // If not found by name, try as a numeric ID
+    if (!profile) {
+      const index = parseInt(profileIdentifier) - 1;
+      if (index >= 0 && index < remoteConfig.profiles.length) {
+        profile = remoteConfig.profiles[index];
+      }
     }
 
-    const profile = remoteConfig.profiles[index];
+    if (!profile) {
+      const availableNames = remoteConfig.profiles.map(p => p.name).join(', ');
+      throw new Error(`Profile "${profileIdentifier}" not found. Available: ${availableNames} (or use 1-${remoteConfig.profiles.length})`);
+    }
 
     for (const p of remoteConfig.profiles) {
       if (p.macs.some(m => m.address === normalizedMac)) {

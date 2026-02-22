@@ -9,11 +9,27 @@ import { loadConfig as loadSSHConfig } from '../config.js';
 export function createScheduleCommand(): Command {
   const cmd = new Command('schedule').description('Manage schedules');
 
-  cmd.command('add <profileId>').description('Add schedule').action(addSchedule);
-  cmd.command('remove <profileId> <index>').description('Remove schedule').action(removeSchedule);
-  cmd.command('show <profileId>').description('Show schedule').action(showSchedule);
+  cmd.command('add <profile>').description('Add schedule').action(addSchedule);
+  cmd.command('remove <profile> <index>').description('Remove schedule').action(removeSchedule);
+  cmd.command('show <profile>').description('Show schedule').action(showSchedule);
 
   return cmd;
+}
+
+// Helper: Find profile by name or ID
+function findProfile(profiles: any[], identifier: string) {
+  // Try by name (case-insensitive)
+  let profile = profiles.find(p => p.name.toLowerCase() === identifier.toLowerCase());
+
+  // If not found, try as numeric ID
+  if (!profile) {
+    const index = parseInt(identifier) - 1;
+    if (index >= 0 && index < profiles.length) {
+      profile = profiles[index];
+    }
+  }
+
+  return profile;
 }
 
 async function addSchedule(profileId: string): Promise<void> {
@@ -26,12 +42,16 @@ async function addSchedule(profileId: string): Promise<void> {
     const remoteConfig = await router.downloadConfig();
     if (!remoteConfig) throw new Error('No config found');
 
-    const index = parseInt(profileId) - 1;
-    if (index < 0 || index >= remoteConfig.profiles.length) {
-      throw new Error('Invalid profile ID');
+    if (!remoteConfig.profiles || remoteConfig.profiles.length === 0) {
+      throw new Error('No profiles found. Run: openfam profiles add <name> first');
     }
 
-    const profile = remoteConfig.profiles[index];
+    const profile = findProfile(remoteConfig.profiles, profileId);
+    if (!profile) {
+      const availableNames = remoteConfig.profiles.map(p => p.name).join(', ');
+      throw new Error(`Profile "${profileId}" not found. Available: ${availableNames} (or use 1-${remoteConfig.profiles.length})`);
+    }
+
     const available = Object.keys(remoteConfig.nextdns.profiles);
     const nextdnsChoices = available.map(key => ({
       name: `${key} - ${remoteConfig.nextdns.profiles[key].name}`,
@@ -95,12 +115,16 @@ async function removeSchedule(profileId: string, scheduleIndex: string): Promise
     const remoteConfig = await router.downloadConfig();
     if (!remoteConfig) throw new Error('No config found');
 
-    const idx = parseInt(profileId) - 1;
-    if (idx < 0 || idx >= remoteConfig.profiles.length) {
-      throw new Error('Invalid profile ID');
+    if (!remoteConfig.profiles || remoteConfig.profiles.length === 0) {
+      throw new Error('No profiles found');
     }
 
-    const profile = remoteConfig.profiles[idx];
+    const profile = findProfile(remoteConfig.profiles, profileId);
+    if (!profile) {
+      const availableNames = remoteConfig.profiles.map(p => p.name).join(', ');
+      throw new Error(`Profile "${profileId}" not found. Available: ${availableNames} (or use 1-${remoteConfig.profiles.length})`);
+    }
+
     const schedIdx = parseInt(scheduleIndex) - 1;
 
     if (schedIdx < 0 || schedIdx >= profile.schedule.length) {
@@ -129,12 +153,16 @@ async function showSchedule(profileId: string): Promise<void> {
     const remoteConfig = await router.downloadConfig();
     if (!remoteConfig) throw new Error('No config found');
 
-    const idx = parseInt(profileId) - 1;
-    if (idx < 0 || idx >= remoteConfig.profiles.length) {
-      throw new Error('Invalid profile ID');
+    if (!remoteConfig.profiles || remoteConfig.profiles.length === 0) {
+      throw new Error('No profiles found');
     }
 
-    const profile = remoteConfig.profiles[idx];
+    const profile = findProfile(remoteConfig.profiles, profileId);
+    if (!profile) {
+      const availableNames = remoteConfig.profiles.map(p => p.name).join(', ');
+      throw new Error(`Profile "${profileId}" not found. Available: ${availableNames} (or use 1-${remoteConfig.profiles.length})`);
+    }
+
     console.log(chalk.cyan(`\nSchedule for "${profile.name}":\n`));
     console.log(chalk.white(`Default: ${profile.default_nextdns}\n`));
 
@@ -146,12 +174,12 @@ async function showSchedule(profileId: string): Promise<void> {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     days.forEach(day => {
       process.stdout.write(chalk.white(`${day}: `));
-      const daySchedules = profile.schedule.filter(s => s.days.includes(day));
+      const daySchedules = profile.schedule.filter((s: any) => s.days.includes(day));
       if (daySchedules.length === 0) {
         process.stdout.write(chalk.gray('Default\n'));
       } else {
-        daySchedules.sort((a, b) => a.time_start.localeCompare(b.time_start));
-        daySchedules.forEach(s => {
+        daySchedules.sort((a: any, b: any) => a.time_start.localeCompare(b.time_start));
+        daySchedules.forEach((s: any) => {
           process.stdout.write(chalk.cyan(`${s.time_start}-${s.time_end} → ${s.nextdns}  `));
         });
         process.stdout.write('\n');
