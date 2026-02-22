@@ -1,18 +1,17 @@
-import TOML from '@iarna/toml';
 import type { Config } from '../types/config.js';
 import { isValidMacAddress, isValidDay, isValidTime } from '../types/config.js';
 
 export class ConfigManager {
-  static parseConfig(tomlString: string): Config {
+  static parseConfig(jsonString: string): Config {
     try {
-      return TOML.parse(tomlString) as unknown as Config;
+      return JSON.parse(jsonString) as Config;
     } catch (error) {
-      throw new Error(`Failed to parse TOML: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   static serializeConfig(config: Config): string {
-    return TOML.stringify(config as any);
+    return JSON.stringify(config, null, 2);
   }
 
   static validateConfig(config: Config): void {
@@ -25,14 +24,14 @@ export class ConfigManager {
 
     const defaultProfile = config.general.nextdns_default_profile;
     if (!config.nextdns?.profiles?.[defaultProfile]) {
-      throw new Error(`Default NextDNS profile '${defaultProfile}' not defined`);
+      throw new Error(`Default NextDNS profile '${defaultProfile}' not defined in nextdns.profiles. Run: openfam nextdns add <id> <name>`);
     }
 
     const profileIds = new Set(Object.keys(config.nextdns?.profiles || {}));
 
     for (const profile of config.profiles || []) {
       if (!profileIds.has(profile.default_nextdns)) {
-        throw new Error(`NextDNS profile '${profile.default_nextdns}' not defined`);
+        throw new Error(`NextDNS profile '${profile.default_nextdns}' (used by profile ${profile.name}) not defined. Run: openfam nextdns add <id> <name>`);
       }
 
       for (const mac of profile.macs || []) {

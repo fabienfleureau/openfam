@@ -1,6 +1,6 @@
-# Open-F.A.M. Dashboard
+# OpenFAM Dashboard
 
-The web dashboard for Open-F.A.M. parental control system.
+The web dashboard for OpenFAM parental control system.
 
 ## Development
 

@@ -45,98 +45,144 @@ async function showDevices(options: { showIpv6?: boolean } = {}): Promise<void> 
   try {
     await ssh.connect();
 
-    // Scan for connected devices
-    const devices = await router.scanDevices();
+    // 1. Get current time from router for "Last Seen" calculation
+    const timeResult = await ssh.exec('date +%s');
+    const currentTime = parseInt(timeResult.stdout.trim(), 10) || Math.floor(Date.now() / 1000);
 
-    if (devices.length === 0) {
-      console.log(chalk.yellow('\nNo devices found on the network.\n'));
-    } else {
-      // Filter out IPv6 unless requested
-      const filteredDevices = options.showIpv6
-        ? devices
-        : devices.filter(d => !d.ip || !d.ip.includes(':'));
+    // 2. Fetch live data and configuration
+    const [discoveredDevices, remoteConfig] = await Promise.all([
+      router.scanDevices(),
+      router.downloadConfig()
+    ]);
 
-      // Build MAC to profile mapping
-      const remoteConfig = await router.downloadConfig();
-      const macToProfile = new Map<string, string>();
-      if (remoteConfig) {
-        for (const profile of remoteConfig.profiles) {
-          for (const mac of profile.macs) {
-            macToProfile.set(mac.address.toUpperCase(), profile.name);
-          }
-        }
-      }
+    // 3. Unified map of all devices
+    const allDevices = new Map<string, {
+      mac: string;
+      ip?: string;
+      hostname?: string;
+      expiry?: number;
+      configName?: string;
+      profileName?: string;
+    }>();
 
-      console.log(chalk.cyan('\nConnected Devices:\n'));
+    // Add discovered devices
+    discoveredDevices.forEach(d => {
+      allDevices.set(d.mac, { ...d });
+    });
 
-      // Table header
-      console.log(
-        chalk.white('MAC Address'.padEnd(18)) +
-        chalk.white('IP Address'.padEnd(40)) +
-        chalk.white('Hostname'.padEnd(20)) +
-        chalk.white('Profile')
-      );
-      console.log(chalk.gray('─'.repeat(95)));
-
-      // Table rows (sort by IP)
-      filteredDevices
-        .sort((a, b) => {
-          if (!a.ip) return 1;
-          if (!b.ip) return -1;
-          return a.ip.localeCompare(b.ip, undefined, { numeric: true });
-        })
-        .forEach(d => {
-          const profile = macToProfile.get(d.mac!);
-          console.log(
-            chalk.cyan((d.mac || '').padEnd(18)) +
-            chalk.white((d.ip || '').padEnd(40)) +
-            chalk.gray((d.hostname || '—').padEnd(20)) +
-            (profile ? chalk.green(profile) : chalk.dim('—'))
-          );
+    // Add configured devices (and override/merge)
+    if (remoteConfig) {
+      remoteConfig.profiles.forEach(p => {
+        p.macs.forEach(m => {
+          const upperMac = m.address.toUpperCase();
+          const existing = allDevices.get(upperMac) || { mac: upperMac };
+          allDevices.set(upperMac, {
+            ...existing,
+            configName: m.name,
+            profileName: p.name
+          });
         });
-      console.log();
+      });
     }
 
-    // Show configured devices
-    const remoteConfig = await router.downloadConfig();
+    const deviceList = Array.from(allDevices.values());
 
-    if (!remoteConfig || remoteConfig.profiles.length === 0 || remoteConfig.profiles.every(p => p.macs.length === 0)) {
-      console.log(chalk.gray('No devices configured yet.'));
-      console.log(chalk.gray('Add a device: openfam devices add <profile> <mac>\n'));
+    if (deviceList.length === 0) {
+      console.log(chalk.yellow('\nNo devices found or configured.\n'));
       return;
     }
 
-    console.log(chalk.cyan('Configured Devices:\n'));
+    // Filter IPv6
+    const filteredList = options.showIpv6
+      ? deviceList
+      : deviceList.filter(d => !d.ip || !d.ip.includes(':'));
+
+    console.log(chalk.cyan('\nDevice Inventory (Grouped by Profile):\n'));
 
     // Table header
-    console.log(
-      chalk.white('MAC Address'.padEnd(18)) +
-      chalk.white('Device Name'.padEnd(25)) +
-      chalk.white('Profile')
-    );
-    console.log(chalk.gray('─'.repeat(55)));
+    const printHeader = () => {
+      console.log(
+        chalk.bold.white('MAC ADDRESS'.padEnd(20)) +
+        chalk.bold.white('NAME/HOSTNAME'.padEnd(30)) +
+        chalk.bold.white('IP ADDRESS'.padEnd(18)) +
+        chalk.bold.white('STATUS')
+      );
+      console.log(chalk.gray('─'.repeat(82)));
+    };
 
-    // Table rows (grouped by profile)
-    let hasDevices = false;
-    remoteConfig.profiles.forEach(p => {
-      if (p.macs.length > 0) {
-        hasDevices = true;
-        p.macs.forEach(m => {
-          console.log(
-            chalk.cyan(m.address.padEnd(18)) +
-            chalk.white(m.name.padEnd(25)) +
-            chalk.green(p.name)
-          );
-        });
-      }
+    // Helper for status
+    const formatStatus = (expiry: number | undefined) => {
+      if (!expiry) return chalk.dim('never seen');
+      if (expiry > currentTime) return chalk.bold.green('Online');
+      
+      const diff = currentTime - expiry;
+      const mins = Math.floor(diff / 60);
+      if (mins < 60) return chalk.yellow(`${mins}m ago`);
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return chalk.gray(`${hours}h ago`);
+      const days = Math.floor(hours / 24);
+      return chalk.dim(`${days}d ago`);
+    };
+
+    // Grouping logic
+    const grouped: Record<string, typeof filteredList> = {};
+    const profileNames = (remoteConfig?.profiles || []).map(p => p.name);
+    
+    // Initialize groups
+    profileNames.forEach(name => { grouped[name] = []; });
+    grouped['Unassigned'] = [];
+
+    // Fill groups
+    filteredList.forEach(d => {
+      const group = d.profileName || 'Unassigned';
+      if (!grouped[group]) grouped[group] = [];
+      grouped[group].push(d);
     });
 
-    if (!hasDevices) {
-      console.log(chalk.gray('No devices configured yet.'));
-      console.log(chalk.gray('Add a device: openfam devices add <profile> <mac>\n'));
-    } else {
-      console.log();
+    // Display each group
+    [...profileNames, 'Unassigned'].forEach(group => {
+      const groupDevices = grouped[group];
+      if (groupDevices.length === 0 && group !== 'Unassigned') {
+        // Skip empty configured profiles if they have no devices
+        return;
+      }
+      if (groupDevices.length === 0 && group === 'Unassigned') {
+        return;
+      }
+
+      console.log(chalk.bold.blue(`\n[ ${group.toUpperCase()} ]`));
+      printHeader();
+
+      groupDevices
+        .sort((a, b) => {
+          const aOnline = (a.expiry || 0) > currentTime;
+          const bOnline = (b.expiry || 0) > currentTime;
+          if (aOnline !== bOnline) return aOnline ? -1 : 1;
+          return (a.configName || a.hostname || '').localeCompare(b.configName || b.hostname || '');
+        })
+        .forEach(d => {
+          const isUnknown = !d.configName && !d.hostname;
+          const displayName = d.configName || d.hostname || 'unknown';
+          const nameColor = isUnknown ? chalk.dim : (d.configName ? chalk.white : chalk.gray);
+          
+          console.log(
+            chalk.cyan(d.mac.padEnd(20)) +
+            nameColor(displayName.slice(0, 29).padEnd(30)) +
+            chalk.gray((d.ip || '—').padEnd(18)) +
+            formatStatus(d.expiry)
+          );
+        });
+    });
+
+    console.log();
+    
+    if (!remoteConfig || remoteConfig.profiles.length === 0) {
+      console.log(chalk.gray('Tip: Run "openfam profiles add" to create your first profile.'));
+    } else if (deviceList.some(d => !d.profileName)) {
+      console.log(chalk.gray('Tip: Run "openfam devices add <profile> <mac>" to assign unassigned devices.'));
     }
+    console.log();
+
   } finally {
     ssh.disconnect();
   }
@@ -197,13 +243,25 @@ async function addDevice(profileIdentifier: string, mac: string, options: { name
 
     let deviceName = options.name;
     if (!deviceName) {
+      // Try to find hostname from router
+      let suggestedName = `Device ${normalizedMac.slice(-6)}`;
+      try {
+        const discoveredDevices = await router.scanDevices();
+        const found = discoveredDevices.find(d => d.mac === normalizedMac);
+        if (found && found.hostname) {
+          suggestedName = found.hostname;
+        }
+      } catch (e) {
+        // Ignore scan errors, use default
+      }
+
       const answers = await inquirer.prompt([{
         type: 'input',
         name: 'name',
         message: 'Device name:',
-        default: `Device ${normalizedMac.slice(-6)}`
+        default: suggestedName
       }]);
-      deviceName = answers.name || `Device ${normalizedMac.slice(-6)}`;
+      deviceName = answers.name || suggestedName;
     }
 
     profile.macs.push({ address: normalizedMac, name: deviceName! });

@@ -8,8 +8,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const FAM_CONFIG_PATH = '/etc/fam/config.toml';
-const FAM_DIR = '/etc/fam';
+const FAM_CONFIG_PATH = '/etc/openfam/config.json';
+const FAM_DIR = '/etc/openfam';
 
 export class RouterService {
   constructor(private ssh: SSHClient) {}
@@ -38,12 +38,12 @@ export class RouterService {
   }
 
   async uploadConfig(config: Config): Promise<void> {
-    const toml = ConfigManager.serializeConfig(config);
+    const json = ConfigManager.serializeConfig(config);
 
     // Write directly using echo with proper escaping
     // Split into chunks to avoid line length limits
-    const lines = toml.split('\n');
-    const tempPath = '/tmp/fam-config.toml';
+    const lines = json.split('\n');
+    const tempPath = '/tmp/fam-config.json';
 
     // Clear temp file first
     await this.ssh.exec(`echo -n > ${tempPath}`);
@@ -73,17 +73,25 @@ export class RouterService {
     return ConfigManager.parseConfig(result.stdout);
   }
 
-  async uploadAgentFile(localPath: string, remotePath: string): Promise<void> {
-    const content = fs.readFileSync(localPath, 'utf-8');
+  async uploadContent(content: string, remotePath: string): Promise<void> {
+    // Use a heredoc to write the content safely
+    // We use 'FAMFILEEOF' as a delimiter
     await this.ssh.exec(`cat > '${remotePath}' << 'FAMFILEEOF'\n${content}\nFAMFILEEOF`);
     await this.ssh.exec(`chmod +x '${remotePath}'`);
   }
 
+  async uploadAgentFile(localPath: string, remotePath: string): Promise<void> {
+    const content = fs.readFileSync(localPath, 'utf-8');
+    await this.uploadContent(content, remotePath);
+  }
+
   async setupCron(): Promise<void> {
-    const cronLine = '*/5 * * * * /etc/fam/agent.sh >> /etc/fam/logs/fam.log 2>&1';
+    const cronLine = '*/5 * * * * /etc/openfam/agent.sh >> /etc/openfam/logs/fam.log 2>&1';
     await this.ssh.exec(
       `(crontab -l 2>/dev/null | grep -v "fam/agent.sh"; echo "${cronLine}") | crontab -`
     );
+    // Ensure crond is running and enabled
+    await this.ssh.exec('/etc/init.d/cron enable && /etc/init.d/cron start');
   }
 
   async getRouterTimezone(): Promise<string> {
@@ -91,24 +99,20 @@ export class RouterService {
     return result.stdout.trim();
   }
 
-  async scanDevices(): Promise<Array<{ mac: string; ip?: string; hostname?: string }>> {
+  async scanDevices(): Promise<Array<{ mac: string; ip?: string; hostname?: string; expiry?: number }>> {
     // Get current timestamp for filtering active DHCP leases
     const timeResult = await this.ssh.exec('date +%s');
     const currentTime = parseInt(timeResult.stdout.trim(), 10) || Math.floor(Date.now() / 1000);
 
     // Try ip neigh first (OpenWrt), fallback to arp -n
     const result = await this.ssh.exec('ip neigh 2>/dev/null || arp -n 2>/dev/null');
-    const devices: Array<{ mac: string; ip?: string }> = [];
+    const devicesMap = new Map<string, { mac: string; ip?: string; expiry?: number }>();
 
     for (const line of result.stdout.split('\n')) {
       const parts = line.trim().split(/\s+/);
 
-      // ip neigh format: IP dev INTERFACE lladdr MAC STATE
-      // arp -n format: IP HWtype Flags HWaddress Mask Device
       if (parts.length >= 5) {
         const ip = parts[0];
-
-        // Find MAC address in different positions
         let mac: string | undefined;
         const lladdrIndex = parts.indexOf('lladdr');
         if (lladdrIndex !== -1 && lladdrIndex + 1 < parts.length) {
@@ -118,50 +122,59 @@ export class RouterService {
         }
 
         if (mac && mac !== '(incomplete)' && mac.includes(':') && mac.match(/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/)) {
-          devices.push({ mac: mac.toUpperCase(), ip });
-        }
-      }
-    }
-
-    // Get DHCP leases for hostnames
-    const leasesResult = await this.ssh.exec('cat /tmp/dhcp.leases 2>/dev/null');
-    const hostnameMap = new Map<string, string>();
-
-    if (leasesResult.exitCode === 0) {
-      for (const line of leasesResult.stdout.split('\n')) {
-        if (!line.trim()) continue;
-        // DHCP leases format: timestamp mac ip hostname clientid
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 4) {
-          const expiryTime = parseInt(parts[0], 10);
-          const mac = parts[1].toUpperCase();
-          const ip = parts[2];
-          const hostname = parts[3] !== '*' ? parts[3] : undefined;
-
-          // Only include active leases
-          if (expiryTime > currentTime && hostname) {
-            hostnameMap.set(mac, hostname);
-            hostnameMap.set(ip, hostname);
+          const upperMac = mac.toUpperCase();
+          const existing = devicesMap.get(upperMac);
+          
+          // Prioritize IPv4 addresses for display
+          if (!existing || (existing.ip?.includes(':') && !ip.includes(':'))) {
+            devicesMap.set(upperMac, { mac: upperMac, ip });
           }
         }
       }
     }
 
-    // Merge hostnames
-    return devices.map(d => ({
-      ...d,
-      hostname: hostnameMap.get(d.mac!) || hostnameMap.get(d.ip!)
-    }));
+    // Get DHCP leases for hostnames and expiry
+    const leasesResult = await this.ssh.exec('cat /tmp/dhcp.leases 2>/dev/null');
+    const leaseData = new Map<string, { hostname?: string; expiry: number }>();
+
+    if (leasesResult.exitCode === 0) {
+      for (const line of leasesResult.stdout.split('\n')) {
+        if (!line.trim()) continue;
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 4) {
+          const expiryTime = parseInt(parts[0], 10);
+          const mac = parts[1].toUpperCase();
+          const hostname = parts[3] !== '*' ? parts[3] : undefined;
+
+          leaseData.set(mac, { hostname, expiry: expiryTime });
+        }
+      }
+    }
+
+    // Merge everything. Use leases as the primary source for "known" devices
+    // even if they are not currently in the ARP cache.
+    const allMacs = new Set([...devicesMap.keys(), ...leaseData.keys()]);
+    
+    return Array.from(allMacs).map(mac => {
+      const live = devicesMap.get(mac);
+      const lease = leaseData.get(mac);
+      return {
+        mac,
+        ip: live?.ip,
+        hostname: lease?.hostname,
+        expiry: lease?.expiry
+      };
+    });
   }
 
   async tailLogs(lines: number = 50): Promise<string> {
-    const result = await this.ssh.exec(`tail -n ${lines} /etc/fam/logs/fam.log 2>/dev/null || echo "No logs yet"`);
+    const result = await this.ssh.exec(`tail -n ${lines} /etc/openfam/logs/fam.log 2>/dev/null || echo "No logs yet"`);
     return result.stdout;
   }
 
   async getAgentStatus(): Promise<string> {
     const result = await this.ssh.exec(
-      `if [ -f /etc/fam/last-command.txt ]; then cat /etc/fam/last-command.txt; else echo "No command executed yet"; fi`
+      `if [ -f /etc/openfam/last-command.txt ]; then cat /etc/openfam/last-command.txt; else echo "No command executed yet"; fi`
     );
     return result.stdout;
   }

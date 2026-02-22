@@ -1,7 +1,7 @@
 {
   "name": "openfam-cli",
   "version": "0.1.0",
-  "description": "Open-F.A.M. CLI - Installer and management tool for OpenWrt parental control",
+  "description": "OpenFAM CLI - Installer and management tool for OpenWrt parental control",
   "main": "dist/index.js",
   "bin": {
     "openfam": "./dist/cli.js"
@@ -9,32 +9,49 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "bundle": "esbuild src/cli.ts --bundle --platform=node --format=cjs --outfile=dist/cli.cjs --external:ssh2 --external:cpu-features --loader:.sh=text --banner:js=\"const __import_meta_url__ = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=\"__import_meta_url__\"",
+    "build:binary": "npm run bundle && pkg dist/cli.cjs --targets node18-macos-x64,node18-macos-arm64 --output dist/openfam",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "lint": "eslint src",
     "type-check": "tsc --noEmit"
   },
-  "keywords": ["parental-control", "openwrt", "cli", "router"],
+  "keywords": [
+    "parental-control",
+    "openwrt",
+    "cli",
+    "router"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "commander": "^12.0.0",
-    "node-ssh": "^13.1.0",
-    "dotenv": "^16.4.1",
     "chalk": "^5.3.0",
-    "ora": "^8.0.1",
-    "@iarna/toml": "^2.0.1",
-    "inquirer": "^9.2.0"
+    "commander": "^12.0.0",
+    "dotenv": "^16.4.1",
+    "inquirer": "^9.2.0",
+    "node-ssh": "^13.1.0",
+    "ora": "^8.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
     "@types/inquirer": "^9.0.7",
-    "typescript": "^5.3.3",
-    "eslint": "^8.56.0",
+    "@types/node": "^20.11.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0"
+    "@typescript-eslint/parser": "^6.19.0",
+    "esbuild": "^0.27.3",
+    "eslint": "^8.56.0",
+    "nexe": "^5.0.0-beta.4",
+    "pkg": "^5.8.1",
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "pkg": {
+    "scripts": "dist/**/*.js",
+    "assets": [],
+    "targets": [
+      "node18-macos-x64"
+    ],
+    "outputPath": "dist"
   }
 }

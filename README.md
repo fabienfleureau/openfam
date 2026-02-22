@@ -1,4 +1,4 @@
-# Open-F.A.M.
+# OpenFAM
 
 > "The smart heart of your family's network"
 
@@ -6,44 +6,44 @@ A modern parental control system built for OpenWrt routers. Zero-trust network a
 
 ## Overview
 
-Open-F.A.M. helps parents manage their family's network through:
+OpenFAM helps parents manage their family's network through:
 
 - **Zero-Trust Access** - New devices are quarantined until approved
 - **Profile-Based Rules** - Different settings for each family member
 - **Time Scheduling** - Homework time, bedtime, screen-free periods
-- **App Filtering** - Block specific apps and categories
+- **App Filtering** - Block specific apps and categories (via DNS & OAF)
 - **Bonus Time** - Kids can request extra time with parental approval
-- **Captive Portal** - Friendly web interface for approvals
+- **Smart Device Inventory** - Unified view of all network devices with "Last Seen" tracking
 
 ## Architecture
 
 ```
-┌─────────────────┐     JSON API      ┌──────────────────┐
+┌─────────────────┐     JSON State    ┌──────────────────┐
 │  Web Dashboard  │◄──────────────────►│  OpenWrt Router  │
-│  (Next.js)      │                    │  (fam-agent)     │
+│  (Next.js)      │   (/etc/openfam)   │  (openfam-agent) │
 └─────────────────┘                    └──────────────────┘
-                                               │
-                                        Plugins:
-                                        ├─ DNS (NextDNS)
-                                        ├─ Firewall (NFTables)
-                                        ├─ App Block (OAF)
-                                        └─ Portal (OpenNDS)
+        ▲                                      │
+        │                               Plugins:
+┌─────────────────┐                     ├─ DNS (NextDNS)
+│  Installer CLI  │                     ├─ Firewall (NFTables)
+│  (TypeScript)   │                     └─ App Block (OAF)
+└─────────────────┘
 ```
 
 ## Components
 
 | Component | Tech Stack | Status |
 |-----------|------------|--------|
-| **Web Dashboard** | Next.js + Tailwind + Supabase | In Progress |
-| **Installer CLI** | TypeScript + Node.js | ✅ Functional |
-| **Router Agent** | Ash (busybox) + jq | To Do |
+| **Installer CLI** | TypeScript + Node.js (Bundled) | ✅ Functional |
+| **Router Agent** | POSIX Ash + jq | ✅ Functional |
+| **Web Dashboard** | Next.js + Tailwind + Supabase | 🛠️ In Progress |
 
 ## Quick Start
 
 ### Prerequisites
 
 - OpenWrt router with SSH access
-- Node.js >= 18
+- Node.js >= 18 (for CLI development)
 - SSH key pair for authentication
 
 ### 1. Install the CLI
@@ -52,106 +52,92 @@ Open-F.A.M. helps parents manage their family's network through:
 git clone https://github.com/yourusername/openfam.git
 cd openfam/openfam-cli
 npm install
-npm run build
+npm run build:binary
 ```
+
+The CLI is bundled with all router agent scripts, making it a single standalone binary.
 
 ### 2. Configure
 
-Create a `.env` file with your router details:
+Create a `.env` file in `openfam-cli/` with your router details:
 
 ```env
-OPENWRT_ROUTER_IP=192.168.10.1
+OPENWRT_ROUTER_IP=192.168.1.1
 OPENWRT_SSH_KEY_PATH=~/.ssh/id_ed25519
 ```
 
-### 3. Test Connection
+### 3. Install on Router
+
+This will install the agent, `jq`, `nextdns`, and set up the cron jobs.
 
 ```bash
-node dist/cli.js auth check
+./dist/openfam install
 ```
 
-### 4. View Connected Devices
+### 4. Manage Your Network
 
 ```bash
-node dist/cli.js devices list
-```
+# View all devices (connected & configured)
+./dist/openfam devices
 
-Output:
-```
-──────────────────────────────────────────────────────────────────────
-Connected (3)
-──────────────────────────────────────────────────────────────────────
-  ● 192.168.10.1    AA:BB:CC:DD:EE:01  router           br-lan
-  ● 192.168.10.137  AA:BB:CC:DD:EE:AB  Nokia-3310       br-lan
-  ● 192.168.10.184  AA:BB:CC:DD:EE:2D  laptop           br-lan
+# Manage profiles
+./dist/openfam profiles add "Emma"
+./dist/openfam devices add Emma AA:BB:CC:DD:EE:FF --name "Emma's Tablet"
 
-──────────────────────────────────────────────────────────────────────
-Offline (2)
-──────────────────────────────────────────────────────────────────────
-  ○ 192.168.10.45   AA:BB:CC:DD:EE:05  tablet           br-lan
-  ○ 192.168.10.89   AA:BB:CC:DD:EE:09  phone-wifi       br-lan
-──────────────────────────────────────────────────────────────────────
-Total: 5 devices  |  3 connected  |  2 offline
+# Manage schedules
+./dist/openfam schedule add Emma
 ```
 
 ## CLI Commands
 
 ```bash
-# Authentication
-openfam auth check           # Test SSH connectivity
-
-# Device Management
-openfam devices list         # List all devices
-openfam devices list --json  # JSON output
-
-# Options
---debug, -d                  # Enable verbose output
---help, -h                   # Show help
+openfam install          # Full setup on router
+openfam devices          # Unified device inventory with last seen
+openfam profiles list    # Manage family profiles
+openfam schedule show    # View time-based rules
+openfam nextdns list     # Manage NextDNS profiles
+openfam status           # Check agent health & file integrity
+openfam logs             # View real-time agent logs
 ```
 
 ## Security
 
-- **SSH Key Authentication Only** - No password authentication
-- **Strict Host Key Verification** - Prevents MITM attacks
-- **Zero-Trust Default** - New devices quarantined automatically
-- **Physical Fail-Safe** - Reset button restores network access
+- **SSH Key Authentication Only** - No password authentication allowed.
+- **Bundled Assets** - Agent scripts are embedded in the CLI binary for security and portability.
+- **JSON Single Source of Truth** - State is managed via `/etc/openfam/config.json`.
+- **Physical Fail-Safe** - Reset button restores original router configuration.
 
-See [CLAUDE.md](./CLAUDE.md) for security guidelines.
+See [CLAUDE.md](./CLAUDE.md) for detailed development and security guidelines.
 
 ## Development
-
-### Web Dashboard
-
-```bash
-cd web/
-npm install
-npm run dev          # http://localhost:3000
-npm run build
-npm run lint
-```
 
 ### CLI
 
 ```bash
 cd openfam-cli/
-npm run build        # Compile TypeScript
-npm run dev          # Watch mode
-npm run type-check   # Validate
+npm run build           # Compile TypeScript
+npm run build:binary    # Create standalone binary
+npm run dev             # Watch mode
+```
+
+### Web Dashboard (MVP V2)
+
+```bash
+cd web/
+npm install
+npm run dev             # http://localhost:3000
 ```
 
 ## Roadmap
 
-- [ ] Router agent implementation
-- [ ] DNS plugin (NextDNS integration)
-- [ ] Firewall plugin (NFTables per-MAC rules)
-- [ ] Captive portal integration
-- [ ] Web dashboard profiles management
-- [ ] App filtering (OAF integration)
+- [x] JSON-based State Management
+- [x] Efficient POSIX Agent with jq
+- [x] Bundled CLI Binary
+- [x] Smart Device Inventory
+- [ ] TUI (Terminal UI) Dashboard Mode
+- [ ] Web Dashboard with Magic Link Auth
+- [ ] Bonus Time Request System
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions welcome! Please read [CLAUDE.md](./CLAUDE.md) for development guidelines.

@@ -51,7 +51,7 @@ async function addProfile(id: string, name: string): Promise<void> {
     const remoteConfig = await router.downloadConfig();
     if (!remoteConfig) throw new Error('No config found');
 
-    const key = id.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const key = id;
     if (remoteConfig.nextdns.profiles[key]) {
       throw new Error(`Profile "${key}" already exists`);
     }

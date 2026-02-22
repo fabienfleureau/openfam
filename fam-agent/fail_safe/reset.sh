@@ -31,8 +31,8 @@ main() {
 
     # 3. Restore UCI config from backup
     log "Restoring UCI configuration..."
-    if [ -d /etc/fam/backup/config ]; then
-        cp -r /etc/fam/backup/config/* /etc/config/
+    if [ -d /etc/openfam/backup/config ]; then
+        cp -r /etc/openfam/backup/config/* /etc/config/
         log "Configuration restored from backup"
     else
         log "Warning: No backup config found"

@@ -1,6 +1,6 @@
-# Open-F.A.M. CLI
+# OpenFAM CLI
 
-Installer and management tool for Open-F.A.M. parental control on OpenWrt routers.
+Installer and management tool for OpenFAM parental control on OpenWrt routers.
 
 ## Installation
 

@@ -18,8 +18,8 @@ export function createLogsCommand(): Command {
         await ssh.connect();
 
         if (options.tail) {
-          console.log(chalk.gray('\nTailing /etc/fam/logs/fam.log (Ctrl+C to exit):\n'));
-          await ssh.exec('tail -f /etc/fam/logs/fam.log 2>/dev/null || echo "No logs yet"');
+          console.log(chalk.gray('\nTailing /etc/openfam/logs/fam.log (Ctrl+C to exit):\n'));
+          await ssh.exec('tail -f /etc/openfam/logs/fam.log 2>/dev/null || echo "No logs yet"');
         } else {
           const logs = await router.tailLogs(parseInt(options.lines));
           console.log(chalk.gray('\nRecent logs:\n'));

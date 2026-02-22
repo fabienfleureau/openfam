@@ -1,14 +1,13 @@
 #!/bin/ash
-. /etc/fam/lib/log.sh
 
-FAM_CONFIG="/etc/fam/config.toml"
+FAM_CONFIG="/etc/openfam/config.json"
 
 get_timezone() {
-    awk -F'=' '/^timezone\s*=/ {gsub(/[" \t]/, "", $2); print $2; exit}' "$FAM_CONFIG"
+    jq -r '.general.timezone // "UTC"' "$FAM_CONFIG"
 }
 
 get_default_profile() {
-    awk -F'=' '/^nextdns_default_profile\s*=/ {gsub(/[" \t]/, "", $2); print $2; exit}' "$FAM_CONFIG"
+    jq -r '.general.nextdns_default_profile // "default"' "$FAM_CONFIG"
 }
 
 config_exists() {

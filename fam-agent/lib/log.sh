@@ -1,9 +1,11 @@
 #!/bin/ash
-FAM_LOG_DIR="/etc/fam/logs"
+FAM_LOG_DIR="/etc/openfam/logs"
 FAM_LOG="$FAM_LOG_DIR/fam.log"
 
 ensure_log_dir() {
-    [ ! -d "$FAM_LOG_DIR" ] && mkdir -p "$FAM_LOG_DIR"
+    if [ ! -d "$FAM_LOG_DIR" ]; then
+        mkdir -p "$FAM_LOG_DIR"
+    fi
 }
 
 log() {

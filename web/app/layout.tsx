@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Open-F.A.M. - The Smart Heart of Your Family's Network",
+  title: "OpenFAM - The Smart Heart of Your Family's Network",
   description: "Parental control dashboard for network management",
 };
 
@@ -26,7 +26,7 @@ export default function RootLayout({
           <div className="container mx-auto flex h-16 items-center justify-between px-4">
             <div className="flex items-center gap-2">
               <span className="text-2xl">🛡️</span>
-              <h1 className="text-xl font-bold text-white">Open-F.A.M.</h1>
+              <h1 className="text-xl font-bold text-white">OpenFAM</h1>
             </div>
             <UserMenu />
           </div>

@@ -16,7 +16,7 @@ const program = new Command();
 
 program
   .name('openfam')
-  .description('Open-F.A.M. CLI - Installer and management tool for OpenWrt parental control')
+  .description('OpenFAM CLI - Installer and management tool for OpenWrt parental control')
   .version('0.1.0')
   .option('-d, --debug', 'enable verbose debug output (may expose sensitive information)');
 
@@ -32,7 +32,7 @@ program.addCommand(createStatusCommand());
 
 // Default action - show help if no command provided
 program.action(() => {
-  console.log(chalk.cyan('\n  Open-F.A.M. - "The smart heart of your family\'s network"\n'));
+  console.log(chalk.cyan('\n  OpenFAM - "The smart heart of your family\'s network"\n'));
   program.help();
 });
 
@@ -40,6 +40,7 @@ program.parse();
 
 // Set debug mode from global options and show warning
 const options = program.opts();
+
 if (options.debug) {
   console.warn(chalk.yellow('⚠️  Debug mode enabled: Detailed output will be shown, including command details and error stack traces.\n'));
 }

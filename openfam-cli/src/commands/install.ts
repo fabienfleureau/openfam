@@ -3,17 +3,29 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { SSHClient } from '../ssh/client.js';
 import { RouterService } from '../services/router-service.js';
+import { ConfigManager } from '../services/config-manager.js';
 import { loadConfig as loadSSHConfig } from '../config.js';
 import type { Config } from '../types/config.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// @ts-ignore
+import agentScript from '../../../fam-agent/agent.sh';
+// @ts-ignore
+import configLib from '../../../fam-agent/lib/config.sh';
+// @ts-ignore
+import scheduleLib from '../../../fam-agent/lib/schedule.sh';
+// @ts-ignore
+import nextdnsLib from '../../../fam-agent/lib/nextdns.sh';
+// @ts-ignore
+import logLib from '../../../fam-agent/lib/log.sh';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export function createInstallCommand(): Command {
   return new Command('install')
-    .description('Install Open-F.A.M. agent on OpenWrt router')
+    .description('Install OpenFAM agent on OpenWrt router')
     .option('--check', 'Only check connectivity')
     .action(async (options) => {
       const config = loadSSHConfig();
@@ -42,7 +54,7 @@ export function createInstallCommand(): Command {
         return;
       }
 
-      console.log(chalk.cyan('\nInstalling Open-F.A.M...\n'));
+      console.log(chalk.cyan('\nInstalling OpenFAM...\n'));
 
       try {
         console.log(chalk.gray('1. Connecting...'));
@@ -58,52 +70,82 @@ export function createInstallCommand(): Command {
         console.log(chalk.green('   ✓ Directories created'));
 
         console.log(chalk.gray('4. Configuring NextDNS...'));
-        const answers = await inquirer.prompt([
-          {
-            type: 'input',
-            name: 'profileId',
-            message: 'NextDNS Profile ID:',
-            validate: (i: string) => i.trim().length > 0 || 'Required'
-          },
-          {
-            type: 'input',
-            name: 'profileName',
-            message: 'Profile name:',
-            default: 'Default'
-          }
-        ]);
+        const existingConfig = await router.downloadConfig();
+        let shouldUploadConfig = true;
 
-        const routerTz = await router.getRouterTimezone();
-        const initialConfig: Config = {
-          general: {
-            timezone: routerTz,
-            nextdns_default_profile: 'default'
-          },
-          nextdns: {
-            profiles: {
-              default: {
-                id: answers.profileId,
-                name: answers.profileName,
-                link: `https://my.nextdns.io/profile/${answers.profileId}`
+        if (existingConfig) {
+          try {
+            ConfigManager.validateConfig(existingConfig);
+            const { confirmOverride } = await inquirer.prompt([
+              {
+                type: 'confirm',
+                name: 'confirmOverride',
+                message: 'An existing config was found on the router. Do you want to override it with a new one?',
+                default: false
               }
-            }
-          },
-          profiles: []
-        };
+            ]);
+            shouldUploadConfig = confirmOverride;
+          } catch (validationError) {
+            console.log(chalk.yellow(`   ! Existing config is invalid: ${validationError instanceof Error ? validationError.message : String(validationError)}`));
+            const { confirmOverride } = await inquirer.prompt([
+              {
+                type: 'confirm',
+                name: 'confirmOverride',
+                message: 'The existing config is invalid and may cause issues. Do you want to override it with a NEW valid one?',
+                default: true
+              }
+            ]);
+            shouldUploadConfig = confirmOverride;
+          }
+        }
 
-        await router.uploadConfig(initialConfig);
-        console.log(chalk.green('   ✓ Config created'));
+        if (shouldUploadConfig) {
+          const answers = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'profileId',
+              message: 'NextDNS Profile ID:',
+              validate: (i: string) => i.trim().length > 0 || 'Required'
+            },
+            {
+              type: 'input',
+              name: 'profileName',
+              message: 'Profile name:',
+              default: 'Default'
+            }
+          ]);
+
+          const routerTz = await router.getRouterTimezone();
+          const initialConfig: Config = {
+            general: {
+              timezone: routerTz,
+              nextdns_default_profile: answers.profileId
+            },
+            nextdns: {
+              profiles: {
+                [answers.profileId]: {
+                  id: answers.profileId,
+                  name: answers.profileName,
+                  link: `https://my.nextdns.io/profile/${answers.profileId}`
+                }
+              }
+            },
+            profiles: []
+          };
+
+          await router.uploadConfig(initialConfig);
+          console.log(chalk.green('   ✓ Config created'));
+        } else {
+          console.log(chalk.yellow('   ! Skipping config creation (keeping existing)'));
+        }
 
         console.log(chalk.gray('5. Uploading agent files...'));
-        // Find fam-agent directory relative to this file
-        const repoRoot = path.resolve(__dirname, '../..');
-        const agentPath = path.join(repoRoot, '../fam-agent');
-        await router.uploadAgentFile(`${agentPath}/agent.sh`, '/etc/fam/agent.sh');
-        await router.uploadAgentFile(`${agentPath}/lib/config.sh`, '/etc/fam/lib/config.sh');
-        await router.uploadAgentFile(`${agentPath}/lib/schedule.sh`, '/etc/fam/lib/schedule.sh');
-        await router.uploadAgentFile(`${agentPath}/lib/nextdns.sh`, '/etc/fam/lib/nextdns.sh');
-        await router.uploadAgentFile(`${agentPath}/lib/log.sh`, '/etc/fam/lib/log.sh');
-        console.log(chalk.green('   ✓ Agent files uploaded'));
+        await router.uploadContent(agentScript, '/etc/openfam/agent.sh');
+        await router.uploadContent(configLib, '/etc/openfam/lib/config.sh');
+        await router.uploadContent(scheduleLib, '/etc/openfam/lib/schedule.sh');
+        await router.uploadContent(nextdnsLib, '/etc/openfam/lib/nextdns.sh');
+        await router.uploadContent(logLib, '/etc/openfam/lib/log.sh');
+        console.log(chalk.green('   ✓ Agent files uploaded (bundled)'));
 
         console.log(chalk.gray('6. Setting up cron...'));
         await router.setupCron();

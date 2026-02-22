@@ -66,7 +66,7 @@ export default function ProfilesPage() {
               <LinkIcon className="w-5 h-5" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-white">Open-F.A.M.</h1>
+              <h1 className="text-2xl font-bold text-white">OpenFAM</h1>
               <p className="text-sm text-white/70">The smart heart of your family's network</p>
             </div>
           </div>

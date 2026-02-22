@@ -42,7 +42,7 @@ poll_config() {
         local new_config=$(echo "$response" | jq -r '.config')
 
         # Update config file
-        echo "$new_config" > /etc/fam/config.json
+        echo "$new_config" > /etc/openfam/config.json
 
         # Update last poll time
         local updated_state=$(load_state | jq ".last_poll = $now" | jq -r '.last_poll = $now')

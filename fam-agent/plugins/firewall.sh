@@ -40,7 +40,7 @@ create_mac_rule() {
 
 # Apply rules from config
 apply_rules() {
-    local config="/etc/fam/config.json"
+    local config="/etc/openfam/config.json"
 
     if [ ! -f "$config" ]; then
         log "Config not found"

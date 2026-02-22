@@ -1,18 +1,24 @@
 #!/bin/ash
-# Open-F.A.M. Router Agent - Polls config and applies NextDNS profiles
+# OpenFAM Router Agent - Polls config and applies NextDNS profiles
 
 set -e
 
-FAM_DIR="/etc/fam"
-FAM_CONFIG="$FAM_DIR/config.toml"
+FAM_DIR="/etc/openfam"
+FAM_CONFIG="$FAM_DIR/config.json"
 FAM_LIB="$FAM_DIR/lib"
 FAM_LAST_CMD="$FAM_DIR/last-command.txt"
+FAM_LOG_DIR="$FAM_DIR/logs"
+
+# Ensure log directory exists immediately
+mkdir -p "$FAM_LOG_DIR"
 
 # Load libraries
 . "$FAM_LIB/log.sh"
 . "$FAM_LIB/config.sh"
 . "$FAM_LIB/schedule.sh"
 . "$FAM_LIB/nextdns.sh"
+
+log "=== Agent run started ==="
 
 # Prevent concurrent execution
 FAM_LOCK="/var/run/fam-agent.pid"
@@ -25,8 +31,6 @@ if [ -f "$FAM_LOCK" ]; then
 fi
 echo $$ > "$FAM_LOCK"
 trap 'rm -f "$FAM_LOCK"' EXIT
-
-log "=== Agent run started ==="
 
 # Validate config
 if ! validate_config; then
@@ -42,67 +46,34 @@ CURRENT_DAY=$(get_current_day)
 CURRENT_TIME=$(get_current_time)
 log "Current: $CURRENT_DAY $CURRENT_TIME (TZ: $TZ)"
 
-# Build device mappings from TOML config
-# Simplified parser for ash
+# Build device mappings from JSON config
 parse_profiles() {
-    local in_profile=0
-    local in_macs=0
-    local profile_name=""
-    local profile_default=""
-    local mac_address=""
-    local result=""
-
-    while IFS= read -r line; do
-        case "$line" in
-            ''|\#*) continue ;;
-        esac
-
-        if echo "$line" | grep -q '^\[\[profiles\]\]'; then
-            in_profile=1
-            in_macs=0
-            profile_name=""
-            profile_default=""
-            continue
-        fi
-
-        if [ $in_profile -eq 1 ]; then
-            if echo "$line" | grep -q '^\[\['; then
-                in_profile=0
-                continue
-            fi
-
-            case "$line" in
-                name\ =*)
-                    profile_name=$(echo "$line" | sed 's/.*= *"\([^"]*\)".*/\1/')
-                    ;;
-                default_nextdns\ =*)
-                    profile_default=$(echo "$line" | sed 's/.*= *"\([^"]*\)".*/\1/')
-                    ;;
-                \[\[profiles.macs\]\])
-                    in_macs=1
-                    ;;
-                address\ =*)
-                    if [ $in_macs -eq 1 ]; then
-                        mac_address=$(echo "$line" | sed 's/.*= *"\([^"]*\)".*/\1/' | tr 'a-z' 'A-Z')
-                        if [ -n "$mac_address" ]; then
-                            if [ -n "$result" ]; then
-                                result="$result,$mac_address=$profile_default"
-                            else
-                                result="$mac_address=$profile_default"
-                            fi
-                        fi
-                    fi
-                    ;;
-                name\ =*\")  # MAC name entry, skip
-                    ;;
-            esac
-        fi
-    done < "$FAM_CONFIG"
-
-    echo "$result"
+    local day=$(get_current_day)
+    local time=$(get_current_time)
+    
+    jq -r --arg day "$day" --arg time "$time" '
+        def to_min: split(":") | (.[0]|tonumber)*60 + (.[1]|tonumber);
+        def is_in_range(s; e; c):
+            (s | to_min) as $s_min | (e | to_min) as $e_min | (c | to_min) as $c_min |
+            if $e_min < $s_min then ($c_min >= $s_min or $c_min < $e_min) else ($c_min >= $s_min and $c_min < $e_min) end;
+        
+        . as $root |
+        [
+            .profiles[] | . as $p |
+            ((.schedule[]? | select(.days[] == $day and is_in_range(.time_start; .time_end; $time)) | .nextdns) // .default_nextdns) as $active |
+            ($root.nextdns.profiles[$active].id // $active) as $id |
+            .macs[] | "\(.address | ascii_upcase)=\($id)"
+        ] | join(",")
+    ' "$FAM_CONFIG"
 }
 
 DEVICE_MAPPINGS=$(parse_profiles)
+
+if [ -z "$DEVICE_MAPPINGS" ]; then
+    log "No devices found in configuration, skipping NextDNS update"
+    log "=== Agent run completed ==="
+    exit 0
+fi
 
 # Build NextDNS command
 NEW_COMMAND=$(build_nextdns_command "$DEVICE_MAPPINGS")
