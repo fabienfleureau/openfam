@@ -4,8 +4,6 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { GeometricBackground } from '@/components/GeometricBackground'
-import { GlassCard } from '@/components/GlassCard'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -54,39 +52,41 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <GeometricBackground />
-
+    <div className="min-h-[80vh] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <GlassCard>
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2">OpenFAM</h1>
-            <p className="text-white/80">Smart Heart of Your Family Network</p>
+        <div className="glass-card p-8 md:p-10">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Create Account</h1>
+            <p className="text-white/40 text-sm">Start protecting your family&apos;s digital life</p>
           </div>
 
-          <h2 className="text-xl text-white mb-6">Create Your Family Account</h2>
-
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div>
+          <form onSubmit={handleSignup} className="space-y-6">
+            <div className="space-y-2">
+              <label className="block text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] ml-1">
+                Family Name
+              </label>
               <input
                 type="text"
-                placeholder="Family Name (e.g., Smith Family)"
+                placeholder="e.g. Smith Family"
                 value={familyName}
                 onChange={(e) => setFamilyName(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-mint/20 focus:border-mint/30 transition-all"
                 disabled={loading}
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] ml-1">
+                Email Address
+              </label>
               <input
                 type="email"
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-mint/20 focus:border-mint/30 transition-all"
                 disabled={loading}
               />
             </div>
@@ -94,25 +94,27 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading || !email || !familyName}
-              className="w-full py-3 px-4 rounded-lg bg-white/20 hover:bg-white/30 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary w-full py-3.5"
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
+              {loading ? 'Creating Account...' : 'Create Family Account'}
             </button>
           </form>
 
           {message && (
-            <p className={`mt-4 text-center text-sm ${message.includes('Error') ? 'text-red-300' : 'text-green-300'}`}>
+            <p className={`mt-6 text-center text-sm font-medium ${message.includes('Error') ? 'text-critical' : 'text-mint'}`}>
               {message}
             </p>
           )}
 
-          <div className="mt-6 text-center text-white/70 text-sm">
-            Already have an account?{' '}
-            <Link href="/login" className="text-white hover:underline">
-              Sign in
-            </Link>
+          <div className="mt-10 text-center border-t border-white/5 pt-8">
+            <p className="text-white/30 text-sm">
+              Already have an account?{' '}
+              <Link href="/login" className="text-white hover:text-mint transition-colors font-medium underline underline-offset-4 decoration-white/10 hover:decoration-mint/30">
+                Sign in
+              </Link>
+            </p>
           </div>
-        </GlassCard>
+        </div>
       </div>
     </div>
   )

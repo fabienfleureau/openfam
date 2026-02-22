@@ -3,16 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Link as LinkIcon, Plus, X } from "lucide-react";
-import { GeometricBackground } from "@/components/GeometricBackground";
-import { GlassCard } from "@/components/GlassCard";
+import { ArrowLeft, Save, Plus, X } from "lucide-react";
 
 export default function NewProfilePage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [macAddresses, setMacAddresses] = useState<string[]>([""]);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
@@ -36,7 +34,6 @@ export default function NewProfilePage() {
     e.preventDefault();
     setError(null);
 
-    // Validate
     if (!name.trim()) {
       setError("Name is required");
       return;
@@ -53,7 +50,6 @@ export default function NewProfilePage() {
       }
     }
 
-    // Check for duplicates
     const uniqueMacs = [...new Set(validMacs)];
     if (uniqueMacs.length !== validMacs.length) {
       setError("Duplicate MAC addresses detected");
@@ -61,7 +57,7 @@ export default function NewProfilePage() {
     }
 
     try {
-      setLoading(true);
+      setSaving(true);
 
       const response = await fetch("/api/profiles", {
         method: "POST",
@@ -70,8 +66,8 @@ export default function NewProfilePage() {
         },
         body: JSON.stringify({
           name: name.trim(),
-          description: description.trim() || undefined,
-          mac_addresses: uniqueMacs.length > 0 ? uniqueMacs : undefined,
+          description: description.trim() || null,
+          mac_addresses: uniqueMacs.length > 0 ? uniqueMacs : [],
         }),
       });
 
@@ -84,140 +80,100 @@ export default function NewProfilePage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create profile");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen relative">
-      <GeometricBackground />
+    <div className="max-w-2xl mx-auto">
+      <header className="mb-12">
+        <Link href="/profiles" className="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors mb-8 text-sm group">
+          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" /> Back to Profiles
+        </Link>
+        <h1 className="text-4xl font-bold tracking-tight text-white mb-2">New Profile</h1>
+        <p className="text-white/40">Create a new family member profile and assign devices.</p>
+      </header>
 
-      <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <Link
-              href="/profiles"
-              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-            >
-              <LinkIcon className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-white">OpenFAM</h1>
-              <p className="text-sm text-white/70">The smart heart of your family's network</p>
-            </div>
+      <form onSubmit={handleSubmit} className="space-y-8 pb-20">
+        {error && (
+          <div className="p-4 rounded-xl bg-critical/10 border border-critical/20 text-critical text-sm font-medium">
+            {error}
           </div>
+        )}
 
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-white">Create Profile</h2>
-            <p className="text-white/70 mt-1">Add a new family member profile</p>
-          </div>
-        </header>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Error Message */}
-          {error && (
-            <GlassCard>
-              <p className="text-red-300">{error}</p>
-            </GlassCard>
-          )}
-
-          {/* Name */}
-          <GlassCard>
-            <label htmlFor="name" className="block text-sm font-medium text-white mb-2">
-              Name <span className="text-red-300">*</span>
-            </label>
+        <div className="glass-card p-8 space-y-8">
+          <div className="space-y-2">
+            <label className="block text-[10px] font-mono text-white/30 uppercase tracking-widest ml-1">Profile Name</label>
             <input
-              id="name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Child, Parent, Guest"
-              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
-              maxLength={255}
+              placeholder="e.g. Soren"
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
               required
             />
-          </GlassCard>
+          </div>
 
-          {/* Description */}
-          <GlassCard>
-            <label htmlFor="description" className="block text-sm font-medium text-white mb-2">
-              Description
-            </label>
+          <div className="space-y-2">
+            <label className="block text-[10px] font-mono text-white/30 uppercase tracking-widest ml-1">Description</label>
             <textarea
-              id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description for this profile"
-              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 resize-none"
-              rows={3}
-              maxLength={5000}
+              placeholder="Optional notes about this profile"
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all min-h-[100px] resize-none"
             />
-          </GlassCard>
+          </div>
+        </div>
 
-          {/* MAC Addresses */}
-          <GlassCard>
-            <div className="flex items-center justify-between mb-4">
-              <label className="block text-sm font-medium text-white">
-                MAC Addresses
-              </label>
-              <button
-                type="button"
-                onClick={addMacField}
-                className="flex items-center gap-1 text-sm text-white/80 hover:text-white transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Device
-              </button>
-            </div>
-            <p className="text-xs text-white/50 mb-4">
-              Assign devices by MAC address (format: AA:BB:CC:DD:EE:FF)
-            </p>
-
-            <div className="space-y-3">
-              {macAddresses.map((mac, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={mac}
-                    onChange={(e) => handleMacChange(index, e.target.value)}
-                    placeholder="AA:BB:CC:DD:EE:FF"
-                    className="flex-1 px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 font-mono text-sm"
-                    style={{ textTransform: "uppercase" }}
-                  />
-                  {macAddresses.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeMacField(index)}
-                      className="p-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </GlassCard>
-
-          {/* Actions */}
-          <div className="flex items-center justify-between gap-4">
-            <Link
-              href="/profiles"
-              className="px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-            >
-              Cancel
-            </Link>
+        <div className="glass-card p-8">
+          <div className="flex items-center justify-between mb-6">
+            <label className="block text-[10px] font-mono text-white/30 uppercase tracking-widest ml-1">Assigned Devices</label>
             <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-3 rounded-lg bg-white text-purple-900 font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+              type="button"
+              onClick={addMacField}
+              className="flex items-center gap-1.5 text-xs text-mint hover:text-mint/80 transition-colors"
             >
-              {loading ? "Creating..." : "Create Profile"}
+              <Plus size={14} /> Add MAC Address
             </button>
           </div>
-        </form>
-      </div>
+
+          <div className="space-y-3">
+            {macAddresses.map((mac, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={mac}
+                  onChange={(e) => handleMacChange(index, e.target.value)}
+                  placeholder="AA:BB:CC:DD:EE:FF"
+                  className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all font-mono text-sm uppercase"
+                />
+                {macAddresses.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeMacField(index)}
+                    className="p-3 rounded-xl bg-critical/10 border border-critical/20 text-critical hover:bg-critical/20 transition-all"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            disabled={saving}
+            className="btn-primary flex-1 flex items-center justify-center gap-2"
+          >
+            <Save size={18} /> {saving ? "Creating..." : "Create Profile"}
+          </button>
+          <Link href="/profiles" className="btn-secondary">
+            Cancel
+          </Link>
+        </div>
+      </form>
     </div>
   );
 }

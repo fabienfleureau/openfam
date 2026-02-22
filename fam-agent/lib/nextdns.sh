@@ -14,9 +14,9 @@ build_nextdns_command() {
 
     local cmd="$NEXTDNS_BIN config set"
     
-    # Always set the main profile ID using --device (without MAC) for unmapped devices
+    # Always set the main profile ID using --profile
     if [ -n "$default_profile_id" ] && [ "$default_profile_id" != "null" ]; then
-        cmd="$cmd --device $default_profile_id"
+        cmd="$cmd --profile $default_profile_id"
     fi
 
     if [ -z "$mappings" ]; then

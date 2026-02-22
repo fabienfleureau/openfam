@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { UserMenu } from "@/components/UserMenu";
 
-const inter = Inter({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-jetbrains-mono",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "OpenFAM - The Smart Heart of Your Family's Network",
-  description: "Parental control dashboard for network management",
+  title: "OpenFAM — The Smart Heart of Your Family's Network",
+  description: "Next-generation parental control dashboard for OpenWrt routers.",
 };
 
 export default function RootLayout({
@@ -20,20 +21,44 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning data-theme="signal-atlas">
-      <body className={`${inter.variable} min-h-screen bg-background text-foreground font-sans`}>
-        <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-white/5 backdrop-blur-xl">
-          <div className="container mx-auto flex h-16 items-center justify-between px-4">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🛡️</span>
-              <h1 className="text-xl font-bold text-white">OpenFAM</h1>
+    <html lang="en" className={`${GeistSans.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-background text-foreground font-sans selection:bg-mint/30 selection:text-white">
+        {/* Navigation */}
+        <nav className="fixed top-0 z-50 w-full border-b border-obsidian-border bg-background/80 backdrop-blur-md">
+          <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 border border-white/10">
+                <span className="text-lg">🛡️</span>
+              </div>
+              <h1 className="text-lg font-semibold tracking-tight text-white">OpenFAM</h1>
             </div>
-            <UserMenu />
+            
+            <div className="flex items-center gap-4">
+              <a 
+                href="https://github.com/fabienfleureau/openfam" 
+                target="_blank" 
+                rel="noreferrer"
+                className="text-sm text-white/50 hover:text-white transition-colors"
+              >
+                GitHub
+              </a>
+              <UserMenu />
+            </div>
           </div>
-        </header>
-        <main className="container mx-auto px-4 py-8">
-          {children}
+        </nav>
+
+        {/* Main Content */}
+        <main className="relative pt-14">
+          <div className="mx-auto max-w-[1400px] px-6 py-10">
+            {children}
+          </div>
         </main>
+
+        {/* Background Subtle Glow */}
+        <div className="fixed inset-0 -z-10 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] h-[40%] w-[40%] rounded-full bg-mint/5 blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] h-[40%] w-[40%] rounded-full bg-critical/5 blur-[120px]" />
+        </div>
       </body>
     </html>
   );
