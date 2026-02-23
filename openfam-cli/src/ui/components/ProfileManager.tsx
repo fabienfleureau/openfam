@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import Spinner from 'ink-spinner';
 import { RouterService } from '../../services/router-service.js';
 import type { Config } from '../../types/config.js';
 
 interface Props {
   router: RouterService;
 }
+
+const SimpleSpinner = () => {
+  const [frame, setFrame] = useState(0);
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  useEffect(() => {
+    const timer = setInterval(() => setFrame((prev) => (prev + 1) % frames.length), 80);
+    return () => clearInterval(timer);
+  }, []);
+  return <Text color="cyan">{frames[frame]}</Text>;
+};
 
 export const ProfileManager: React.FC<Props> = ({ router }) => {
   const [config, setConfig] = useState<Config | null>(null);
@@ -17,54 +26,59 @@ export const ProfileManager: React.FC<Props> = ({ router }) => {
       try {
         const remoteConfig = await router.downloadConfig();
         setConfig(remoteConfig);
-      } catch (err) {
-        // Error handling
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { } finally { setLoading(false); }
     }
     fetchData();
   }, [router]);
 
   if (loading) {
     return (
-      <Box gap={1}>
-        <Text color="yellow">
-          <Spinner type="dots" />
-        </Text>
-        <Text>Loading profiles...</Text>
+      <Box gap={1} height="100%" alignItems="center" justifyContent="center">
+        <SimpleSpinner />
+        <Text color="gray"> RETRIEVING PROFILE CONFIGURATIONS...</Text>
       </Box>
     );
   }
 
   return (
     <Box flexDirection="column">
-      <Text bold color="white">FAMILY PROFILES</Text>
-      <Box marginTop={1} flexDirection="column">
+      <Box marginBottom={1}>
+        <Text bold color="white" inverse> ACCESS CONTROL PROFILES </Text>
+      </Box>
+
+      <Box flexDirection="column" marginTop={1}>
         {config?.profiles.map((p, i) => (
-          <Box key={p.name} flexDirection="column" marginTop={i === 0 ? 0 : 1} paddingY={1} borderStyle="round" borderColor="blue" paddingX={1}>
+          <Box key={p.name} flexDirection="column" marginBottom={1} paddingX={2} paddingY={1} borderStyle="round" borderColor="blue">
             <Box justifyContent="space-between">
-              <Text bold color="white">{p.name.toUpperCase()}</Text>
-              <Text color="gray">Default: <Text color="blue">{p.default_nextdns}</Text></Text>
+              <Box gap={2}>
+                <Text bold color="white">{p.name.toUpperCase()}</Text>
+                <Text dimColor>│</Text>
+                <Text color="gray">Policy: <Text color="cyan">{p.default_nextdns}</Text></Text>
+              </Box>
+              <Text color="gray">{p.macs.length} Devices</Text>
             </Box>
-            <Box marginTop={1}>
-              <Text dimColor>Devices: {p.macs.length}</Text>
-              <Box marginLeft={4}>
-                <Text dimColor>Schedules: {p.schedule.length}</Text>
+            
+            <Box marginTop={1} gap={4}>
+              <Text dimColor>Schedules: <Text color="white">{p.schedule.length}</Text></Text>
+              <Box flexDirection="row" flexGrow={1}>
+                <Text dimColor>Hardware: </Text>
+                <Text color="gray" wrap="truncate-end">
+                  {p.macs.map(m => m.name).join(', ') || 'None assigned'}
+                </Text>
               </Box>
             </Box>
-            {p.macs.length > 0 && (
-              <Box marginTop={1} flexDirection="column">
-                {p.macs.map(m => (
-                  <Text key={m.address} color="gray">  - {m.name} ({m.address})</Text>
-                ))}
-              </Box>
-            )}
           </Box>
         ))}
+        
         {(!config?.profiles || config.profiles.length === 0) && (
-          <Text color="yellow">No profiles configured.</Text>
+          <Box padding={2} borderStyle="single" borderColor="yellow">
+            <Text color="yellow">No family profiles have been configured yet.</Text>
+          </Box>
         )}
+      </Box>
+
+      <Box marginTop={1}>
+        <Text dimColor>Use the web dashboard or CLI commands to add/edit profiles.</Text>
       </Box>
     </Box>
   );

@@ -17,11 +17,17 @@ export function createUICommand(): Command {
       try {
         await ssh.connect();
         
+        // Enter alternate screen
+        process.stdout.write('\x1b[?1049h');
+        
         const { waitUntilExit } = render(
           React.createElement(App, { ssh, router })
         );
 
         await waitUntilExit();
+        
+        // Exit alternate screen
+        process.stdout.write('\x1b[?1049l');
       } catch (error) {
         console.error('Failed to start TUI:', error);
         process.exit(1);

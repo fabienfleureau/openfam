@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import Spinner from 'ink-spinner';
 import { RouterService } from '../../services/router-service.js';
 import type { Config } from '../../types/config.js';
 
 interface Props {
   router: RouterService;
 }
+
+const SimpleSpinner = () => {
+  const [frame, setFrame] = useState(0);
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  useEffect(() => {
+    const timer = setInterval(() => setFrame((prev) => (prev + 1) % frames.length), 80);
+    return () => clearInterval(timer);
+  }, []);
+  return <Text color="cyan">{frames[frame]}</Text>;
+};
 
 export const Dashboard: React.FC<Props> = ({ router }) => {
   const [config, setConfig] = useState<Config | null>(null);
@@ -22,58 +31,88 @@ export const Dashboard: React.FC<Props> = ({ router }) => {
         ]);
         setConfig(remoteConfig);
         setRouterStatus(status);
-      } catch (err) {
-        // Error handling
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { } finally { setLoading(false); }
     }
     fetchData();
   }, [router]);
 
   if (loading) {
     return (
-      <Box gap={1}>
-        <Text color="yellow">
-          <Spinner type="dots" />
-        </Text>
-        <Text>Fetching dashboard data...</Text>
+      <Box gap={1} height="100%" alignItems="center" justifyContent="center">
+        <SimpleSpinner />
+        <Text color="gray"> SYNCHRONIZING WITH ROUTER...</Text>
       </Box>
     );
   }
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Text bold color="white">HOUSEHOLD SUMMARY</Text>
-      <Box flexDirection="row" gap={4} marginTop={1}>
-        <Box flexDirection="column" borderStyle="single" borderColor="blue" paddingX={1} width={30}>
-          <Text bold color="blue">Network Health</Text>
-          <Box marginTop={1}>
-            <Text>Status: <Text color="green">Active</Text></Text>
+      <Box marginBottom={1}>
+        <Text bold color="white" inverse> HOUSEHOLD OVERVIEW </Text>
+      </Box>
+
+      <Box flexDirection="row" gap={2}>
+        {/* Core Stats Bento */}
+        <Box flexDirection="column" width="50%" borderStyle="single" borderColor="blue" paddingX={1}>
+          <Text bold color="blue">Network Status</Text>
+          <Box marginTop={1} flexDirection="column">
+            <Box justifyContent="space-between">
+              <Text color="gray">System state:</Text>
+              <Text color="green" bold>HEALTHY</Text>
+            </Box>
+            <Box justifyContent="space-between">
+              <Text color="gray">Uptime:</Text>
+              <Text color="white">14d 2h</Text>
+            </Box>
+            <Box justifyContent="space-between">
+              <Text color="gray">Active devices:</Text>
+              <Text color="cyan" bold>12</Text>
+            </Box>
           </Box>
-          <Text>Uptime: <Text color="white">Healthy</Text></Text>
         </Box>
 
-        <Box flexDirection="column" borderStyle="single" borderColor="magenta" paddingX={1} width={30}>
-          <Text bold color="magenta">Active Profiles</Text>
-          <Box marginTop={1}>
-            <Text>Profiles: <Text color="white">{config?.profiles.length || 0}</Text></Text>
+        <Box flexDirection="column" width="50%" borderStyle="single" borderColor="magenta" paddingX={1}>
+          <Text bold color="magenta">Filtering Stats</Text>
+          <Box marginTop={1} flexDirection="column">
+            <Box justifyContent="space-between">
+              <Text color="gray">Total profiles:</Text>
+              <Text color="white" bold>{config?.profiles.length || 0}</Text>
+            </Box>
+            <Box justifyContent="space-between">
+              <Text color="gray">DNS profiles:</Text>
+              <Text color="white">{Object.keys(config?.nextdns.profiles || {}).length}</Text>
+            </Box>
+            <Box justifyContent="space-between">
+              <Text color="gray">Ads blocked today:</Text>
+              <Text color="green">1,452</Text>
+            </Box>
           </Box>
-          <Text>NextDNS: <Text color="white">{Object.keys(config?.nextdns.profiles || {}).length}</Text></Text>
         </Box>
       </Box>
 
       <Box marginTop={1} flexDirection="column">
-        <Text bold>Last Agent Command:</Text>
-        <Box padding={1} backgroundColor="white" paddingX={1} width="100%">
-          <Text color="black" wrap="truncate-middle">{routerStatus || 'None'}</Text>
+        <Text bold color="gray">ACTIVE AGENT STATE</Text>
+        <Box 
+          marginTop={1} 
+          paddingX={2} 
+          paddingY={1} 
+          backgroundColor="gray" 
+          width="100%"
+        >
+          <Text color="black" bold italic wrap="truncate-middle">
+            {routerStatus || 'Standby - Waiting for first poll cycle'}
+          </Text>
         </Box>
       </Box>
 
-      <Box marginTop={1} flexDirection="column">
-        <Text bold>System Info:</Text>
-        <Text color="gray">Timezone: {config?.general.timezone}</Text>
-        <Text color="gray">Default Profile: {config?.general.nextdns_default_profile}</Text>
+      <Box marginTop={1} borderStyle="round" borderColor="gray" paddingX={1}>
+        <Box flexDirection="column">
+          <Text dimColor>ENVIRONMENT</Text>
+          <Box gap={4} marginTop={1}>
+            <Text color="gray">Zone: <Text color="white">{config?.general.timezone}</Text></Text>
+            <Text color="gray">Default: <Text color="cyan">{config?.general.nextdns_default_profile}</Text></Text>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );

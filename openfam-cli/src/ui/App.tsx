@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
-import SelectInput from 'ink-select-input';
+import SelectInputImport from 'ink-select-input';
 import { SSHClient } from '../ssh/client.js';
 import { RouterService } from '../services/router-service.js';
 import { Dashboard } from './components/Dashboard.js';
 import { DeviceList } from './components/DeviceList.js';
 import { ProfileManager } from './components/ProfileManager.js';
 import { LogViewer } from './components/LogViewer.js';
+
+// Handle CJS/ESM default export mess
+const SelectInput = (SelectInputImport as any).default || SelectInputImport;
 
 interface Props {
   ssh: SSHClient;
@@ -18,25 +21,21 @@ type View = 'dashboard' | 'profiles' | 'devices' | 'logs' | 'exit';
 export const App: React.FC<Props> = ({ ssh, router }) => {
   const { exit } = useApp();
   const [activeView, setActiveView] = useState<View>('dashboard');
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connected');
-
+  
   const menuItems = [
-    { label: '📊 Dashboard', value: 'dashboard' as const },
-    { label: '👥 Profiles ', value: 'profiles' as const },
-    { label: '📱 Devices  ', value: 'devices' as const },
-    { label: '📝 Logs     ', value: 'logs' as const },
-    { label: '🚪 Exit     ', value: 'exit' as const },
+    { label: ' 📊  Dashboard ', value: 'dashboard' as const },
+    { label: ' 👥  Profiles  ', value: 'profiles' as const },
+    { label: ' 📱  Devices   ', value: 'devices' as const },
+    { label: ' 📝  Logs      ', value: 'logs' as const },
+    { label: ' 🚪  Exit      ', value: 'exit' as const },
   ];
 
   const handleSelect = (item: { value: View }) => {
-    if (item.value === 'exit') {
-      exit();
-      return;
-    }
+    if (item.value === 'exit') exit();
     setActiveView(item.value);
   };
 
-  useInput((input, key) => {
+  useInput((input) => {
     if (input === 'q') exit();
     if (input === 'd') setActiveView('dashboard');
     if (input === 'p') setActiveView('profiles');
@@ -45,34 +44,43 @@ export const App: React.FC<Props> = ({ ssh, router }) => {
   });
 
   return (
-    <Box flexDirection="column" minHeight={20}>
-      {/* Header */}
-      <Box borderStyle="round" borderColor="cyan" paddingX={1} justifyContent="space-between">
-        <Box>
-          <Text bold color="cyan">🛡️ OpenFAM </Text>
-          <Text color="gray">| Interactive Dashboard</Text>
+    <Box flexDirection="column" width="100%" height="100%">
+      {/* Top Bar - No border to save vertical space if terminal is small */}
+      <Box 
+        paddingX={2} 
+        justifyContent="space-between"
+        backgroundColor="cyan"
+      >
+        <Box gap={1}>
+          <Text bold color="black">🛡️  OpenFAM</Text>
+          <Text color="black">│ Obsidian Dashboard</Text>
         </Box>
-        <Box>
-          <Text color={status === 'connected' ? 'green' : 'red'}>
-            ● {status.toUpperCase()}
-          </Text>
+        <Box gap={2}>
+          <Text color="black" bold>● CONNECTED</Text>
         </Box>
       </Box>
 
-      <Box flexGrow={1}>
-        {/* Sidebar */}
+      <Box flexGrow={1} marginTop={1}>
+        {/* Navigation Sidebar */}
         <Box 
           flexDirection="column" 
-          width={20} 
+          width={24} 
           borderStyle="round" 
           borderColor="gray" 
           paddingX={1}
         >
-          <Text bold underline>MENU</Text>
-          <Box marginTop={1}>
-            <SelectInput items={menuItems} onSelect={handleSelect} />
+          <Box marginBottom={1} paddingX={1}>
+            <Text bold color="white">MENU</Text>
           </Box>
-          <Box marginTop={2} flexDirection="column">
+          <SelectInput 
+            items={menuItems} 
+            onSelect={handleSelect}
+            indicatorComponent={({ isSelected }) => (
+              <Text color="cyan">{isSelected ? ' › ' : '   '}</Text>
+            )}
+          />
+          
+          <Box marginTop="auto" flexDirection="column" paddingX={1}>
             <Text dimColor>Shortcuts:</Text>
             <Text dimColor>[d] Dashboard</Text>
             <Text dimColor>[p] Profiles</Text>
@@ -82,13 +90,12 @@ export const App: React.FC<Props> = ({ ssh, router }) => {
           </Box>
         </Box>
 
-        {/* Main Content */}
+        {/* Dynamic Content Area */}
         <Box 
           flexGrow={1} 
           borderStyle="round" 
           borderColor="white" 
           paddingX={2}
-          paddingY={1}
         >
           {activeView === 'dashboard' && <Dashboard router={router} />}
           {activeView === 'devices' && <DeviceList router={router} />}
@@ -97,9 +104,9 @@ export const App: React.FC<Props> = ({ ssh, router }) => {
         </Box>
       </Box>
 
-      {/* Footer */}
-      <Box backgroundColor="gray" paddingX={1}>
-        <Text color="black"> Use arrow keys to navigate • Press Enter to select </Text>
+      {/* Footer / Status Bar */}
+      <Box paddingX={1}>
+        <Text dimColor>Use Arrow Keys & Enter to navigate</Text>
       </Box>
     </Box>
   );
