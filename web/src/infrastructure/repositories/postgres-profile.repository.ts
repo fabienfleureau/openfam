@@ -47,26 +47,27 @@ export const PostgresProfileRepository: ProfileRepository = {
         }
       }
 
-      // Insert profile
+      // Insert profile - use a UUID for ID
       const profileResult = await client.query(
-        `INSERT INTO profiles (name, description)
-         VALUES ($1, $2)
+        `INSERT INTO profiles (id, name, description)
+         VALUES (gen_random_uuid(), $1, $2)
          RETURNING id, name, description, created_at, updated_at`,
         [input.name, input.description || null]
       );
 
       const profile = profileResult.rows[0];
 
-      // Insert MAC addresses if provided
+      // Upsert devices and link to profile
       const macAddresses: any[] = [];
       if (input.mac_addresses && input.mac_addresses.length > 0) {
         for (const mac of input.mac_addresses) {
           const normalizedMac = normalizeMacAddress(mac);
           const macResult = await client.query(
-            `INSERT INTO profile_mac_addresses (profile_id, mac_address)
+            `INSERT INTO devices (mac_address, profile_id)
              VALUES ($1, $2)
+             ON CONFLICT (mac_address) DO UPDATE SET profile_id = $2
              RETURNING id, mac_address, created_at`,
-            [profile.id, normalizedMac]
+            [normalizedMac, profile.id]
           );
           macAddresses.push(macResult.rows[0]);
         }
@@ -93,15 +94,15 @@ export const PostgresProfileRepository: ProfileRepository = {
               COALESCE(
                 json_agg(
                   json_build_object(
-                    'id', maa.id,
-                    'address', maa.mac_address,
-                    'created_at', maa.created_at
-                  ) ORDER BY maa.created_at
-                ) FILTER (WHERE maa.id IS NOT NULL),
+                    'id', d.id,
+                    'address', d.mac_address,
+                    'created_at', d.created_at
+                  ) ORDER BY d.created_at
+                ) FILTER (WHERE d.id IS NOT NULL),
                 '[]'
               ) as mac_addresses
        FROM profiles p
-       LEFT JOIN profile_mac_addresses maa ON p.id = maa.profile_id
+       LEFT JOIN devices d ON p.id = d.profile_id
        WHERE p.id = $1
        GROUP BY p.id`,
       [id]
@@ -116,15 +117,15 @@ export const PostgresProfileRepository: ProfileRepository = {
               COALESCE(
                 json_agg(
                   json_build_object(
-                    'id', maa.id,
-                    'address', maa.mac_address,
-                    'created_at', maa.created_at
-                  ) ORDER BY maa.created_at
-                ) FILTER (WHERE maa.id IS NOT NULL),
+                    'id', d.id,
+                    'address', d.mac_address,
+                    'created_at', d.created_at
+                  ) ORDER BY d.created_at
+                ) FILTER (WHERE d.id IS NOT NULL),
                 '[]'
               ) as mac_addresses
        FROM profiles p
-       LEFT JOIN profile_mac_addresses maa ON p.id = maa.profile_id
+       LEFT JOIN devices d ON p.id = d.profile_id
        WHERE p.name = $1
        GROUP BY p.id`,
       [name]
@@ -139,15 +140,15 @@ export const PostgresProfileRepository: ProfileRepository = {
               COALESCE(
                 json_agg(
                   json_build_object(
-                    'id', maa.id,
-                    'address', maa.mac_address,
-                    'created_at', maa.created_at
-                  ) ORDER BY maa.created_at
-                ) FILTER (WHERE maa.id IS NOT NULL),
+                    'id', d.id,
+                    'address', d.mac_address,
+                    'created_at', d.created_at
+                  ) ORDER BY d.created_at
+                ) FILTER (WHERE d.id IS NOT NULL),
                 '[]'
               ) as mac_addresses
        FROM profiles p
-       LEFT JOIN profile_mac_addresses maa ON p.id = maa.profile_id
+       LEFT JOIN devices d ON p.id = d.profile_id
        GROUP BY p.id
        ORDER BY p.name ASC`
     );
@@ -197,16 +198,17 @@ export const PostgresProfileRepository: ProfileRepository = {
 
       // Update MAC addresses if provided
       if (input.mac_addresses !== undefined) {
-        // Delete existing MAC addresses
-        await client.query('DELETE FROM profile_mac_addresses WHERE profile_id = $1', [id]);
+        // Unlink existing devices for this profile
+        await client.query('UPDATE devices SET profile_id = NULL WHERE profile_id = $1', [id]);
 
-        // Insert new MAC addresses
+        // Link new MAC addresses (upsert/update existing device or insert new)
         for (const mac of input.mac_addresses) {
           const normalizedMac = normalizeMacAddress(mac);
           await client.query(
-            `INSERT INTO profile_mac_addresses (profile_id, mac_address)
-             VALUES ($1, $2)`,
-            [id, normalizedMac]
+            `INSERT INTO devices (mac_address, profile_id)
+             VALUES ($1, $2)
+             ON CONFLICT (mac_address) DO UPDATE SET profile_id = $2`,
+            [normalizedMac, id]
           );
         }
       }
@@ -217,15 +219,15 @@ export const PostgresProfileRepository: ProfileRepository = {
                 COALESCE(
                   json_agg(
                     json_build_object(
-                      'id', maa.id,
-                      'address', maa.mac_address,
-                      'created_at', maa.created_at
-                    ) ORDER BY maa.created_at
-                  ) FILTER (WHERE maa.id IS NOT NULL),
+                      'id', d.id,
+                      'address', d.mac_address,
+                      'created_at', d.created_at
+                    ) ORDER BY d.created_at
+                  ) FILTER (WHERE d.id IS NOT NULL),
                   '[]'
                 ) as mac_addresses
          FROM profiles p
-         LEFT JOIN profile_mac_addresses maa ON p.id = maa.profile_id
+         LEFT JOIN devices d ON p.id = d.profile_id
          WHERE p.id = $1
          GROUP BY p.id`,
         [id]

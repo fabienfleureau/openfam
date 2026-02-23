@@ -15,8 +15,13 @@ let pool: PgPool | null = null;
  */
 export function getPool(): PgPool {
   if (!pool) {
+    const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    if (!connectionString) {
+      console.error('DATABASE_URL or POSTGRES_URL is missing from environment variables');
+    }
+
     const config: PoolConfig = {
-      connectionString: process.env.DATABASE_URL,
+      connectionString,
       min: parseInt(process.env.PG_MIN_CONNECTIONS || '1', 10),
       max: parseInt(process.env.PG_MAX_CONNECTIONS || '10', 10),
       idleTimeoutMillis: parseInt(process.env.PG_IDLE_TIMEOUT_MS || '30000', 10),

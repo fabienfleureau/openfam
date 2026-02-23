@@ -17,7 +17,7 @@ const migrations: Migration[] = [
   {
     name: '001_initial_schema',
     sql: `
-      -- Profiles table
+      -- Profiles: Child profiles with schedules and rules
       CREATE TABLE IF NOT EXISTS profiles (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -26,18 +26,31 @@ const migrations: Migration[] = [
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
 
-      -- MAC addresses linked to profiles
-      CREATE TABLE IF NOT EXISTS profile_mac_addresses (
+      -- Devices: Network devices linked to profiles
+      CREATE TABLE IF NOT EXISTS devices (
         id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
-        profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-        mac_address TEXT NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE (profile_id, mac_address)
+        mac_address TEXT NOT NULL UNIQUE,
+        hostname TEXT,
+        profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL,
+        last_seen TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
       );
 
-      -- Index for faster lookups
-      CREATE INDEX IF NOT EXISTS idx_profiles_name ON profiles(name);
-      CREATE INDEX IF NOT EXISTS idx_mac_addresses ON profile_mac_addresses(mac_address);
+      -- Schedule rules for profiles
+      CREATE TABLE IF NOT EXISTS schedule_rules (
+        id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+        profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+        time_range TEXT NOT NULL, -- Format: "HH:MM-HH:MM"
+        mode TEXT NOT NULL, -- 'homework', 'free_time', 'sleep'
+        apps JSONB, -- Array of app rules like ["tiktok:block", "roblox:block"]
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      -- Index for faster device lookups by MAC
+      CREATE INDEX IF NOT EXISTS idx_devices_mac ON devices(mac_address);
+
+      -- Index for schedule lookups
+      CREATE INDEX IF NOT EXISTS idx_schedule_profile ON schedule_rules(profile_id);
     `
   },
   {
@@ -112,4 +125,14 @@ export async function runMigrations(): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+// Allow running directly
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  runMigrations()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error('Migration failed:', err);
+      process.exit(1);
+    });
 }

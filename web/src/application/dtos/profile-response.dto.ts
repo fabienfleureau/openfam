@@ -22,11 +22,15 @@ export interface ProfileResponse {
  * Convert domain entity to response DTO
  */
 export function toProfileResponse(profile: any): ProfileResponse {
+  if (!profile) {
+    throw new Error('Cannot convert null profile to response');
+  }
+
   return {
     id: profile.id,
     name: profile.name,
     description: profile.description,
-    mac_addresses: profile.mac_addresses.map((m: any) => ({
+    mac_addresses: (profile.mac_addresses || []).map((m: any) => ({
       id: m.id,
       address: m.address,
       created_at: m.created_at instanceof Date ? m.created_at.toISOString() : m.created_at,
@@ -40,5 +44,6 @@ export function toProfileResponse(profile: any): ProfileResponse {
  * Convert list of domain entities to response DTOs
  */
 export function toProfileResponseList(profiles: any[]): ProfileResponse[] {
+  if (!profiles) return [];
   return profiles.map(toProfileResponse);
 }

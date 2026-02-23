@@ -7,6 +7,7 @@ import { Dashboard } from './components/Dashboard.js';
 import { DeviceList } from './components/DeviceList.js';
 import { ProfileManager } from './components/ProfileManager.js';
 import { LogViewer } from './components/LogViewer.js';
+import { DeviceAssigner } from './components/DeviceAssigner.js';
 
 // Handle CJS/ESM default export mess
 const SelectInput = (SelectInputImport as any).default || SelectInputImport;
@@ -16,7 +17,7 @@ interface Props {
   router: RouterService;
 }
 
-type View = 'dashboard' | 'profiles' | 'devices' | 'logs' | 'exit';
+type View = 'dashboard' | 'profiles' | 'devices' | 'logs' | 'assign' | 'exit';
 
 export const App: React.FC<Props> = ({ ssh, router }) => {
   const { exit } = useApp();
@@ -26,6 +27,7 @@ export const App: React.FC<Props> = ({ ssh, router }) => {
     { label: ' 📊  Dashboard ', value: 'dashboard' as const },
     { label: ' 👥  Profiles  ', value: 'profiles' as const },
     { label: ' 📱  Devices   ', value: 'devices' as const },
+    { label: ' 🔗  Assign    ', value: 'assign' as const },
     { label: ' 📝  Logs      ', value: 'logs' as const },
     { label: ' 🚪  Exit      ', value: 'exit' as const },
   ];
@@ -41,11 +43,12 @@ export const App: React.FC<Props> = ({ ssh, router }) => {
     if (input === 'p') setActiveView('profiles');
     if (input === 'v') setActiveView('devices');
     if (input === 'l') setActiveView('logs');
+    if (input === 'a') setActiveView('assign');
   });
 
   return (
     <Box flexDirection="column" width="100%" height="100%">
-      {/* Top Bar - No border to save vertical space if terminal is small */}
+      {/* Top Bar */}
       <Box 
         paddingX={2} 
         justifyContent="space-between"
@@ -85,6 +88,7 @@ export const App: React.FC<Props> = ({ ssh, router }) => {
             <Text dimColor>[d] Dashboard</Text>
             <Text dimColor>[p] Profiles</Text>
             <Text dimColor>[v] Devices</Text>
+            <Text dimColor>[a] <Text color="white" bold>Assign</Text></Text>
             <Text dimColor>[l] Logs</Text>
             <Text dimColor>[q] Quit</Text>
           </Box>
@@ -101,6 +105,13 @@ export const App: React.FC<Props> = ({ ssh, router }) => {
           {activeView === 'devices' && <DeviceList router={router} />}
           {activeView === 'profiles' && <ProfileManager router={router} />}
           {activeView === 'logs' && <LogViewer router={router} />}
+          {activeView === 'assign' && (
+            <DeviceAssigner 
+              router={router} 
+              onComplete={() => setActiveView('devices')}
+              onCancel={() => setActiveView('dashboard')}
+            />
+          )}
         </Box>
       </Box>
 
